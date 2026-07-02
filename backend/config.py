@@ -1,0 +1,25 @@
+from dotenv import load_dotenv
+import os
+
+load_dotenv("/opt/pisowifi/.env")
+
+DATABASE_HOST = os.getenv("DATABASE_HOST")
+DATABASE_PORT = os.getenv("DATABASE_PORT")
+DATABASE_NAME = os.getenv("DATABASE_NAME")
+DATABASE_USER = os.getenv("DATABASE_USER")
+DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+
+SERIAL_PORT = os.getenv("SERIAL_PORT")
+SERIAL_BAUDRATE = int(os.getenv("SERIAL_BAUDRATE"))
+
+SESSION_CHECK_INTERVAL = int(os.getenv("SESSION_CHECK_INTERVAL"))
+
+BACKUP_DIRECTORY = os.getenv("BACKUP_DIRECTORY")
+LOG_DIRECTORY = os.getenv("LOG_DIRECTORY")
+
+NFT_TABLE_NAME = os.getenv("NFT_TABLE_NAME")
+NFT_SET_NAME = os.getenv("NFT_SET_NAME")
+
+CAPTIVE_PORTAL_PORT = int(os.getenv("CAPTIVE_PORTAL_PORT"))
+
+PAUSE_EXPIRATION_DAYS = int(os.getenv("PAUSE_EXPIRATION_DAYS"))
