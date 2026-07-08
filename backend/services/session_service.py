@@ -3,23 +3,28 @@ from repositories.session_repository import SessionRepository
 
 class SessionService:
 
-    def __init__(self, repository: SessionRepository):
-        self.repository = repository
+    def __init__(self, session_repository: SessionRepository):
+        self.session_repository = session_repository
 
-    def create_session(self):
-        raise NotImplementedError
+    def create_or_extend_session(
+        self,
+        client_id: int,
+        rate_id: int,
+        minutes: int,
+    ):
+        session = self.session_repository.get_active_session_by_client_id(client_id)
 
-    def extend_session(self):
-        raise NotImplementedError
+        if session:
+            session.remaining_minutes += minutes
+            session.purchased_minutes += minutes
 
-    def pause_session(self):
-        raise NotImplementedError
+            self.session_repository.db.commit()
+            self.session_repository.db.refresh(session)
 
-    def resume_session(self):
-        raise NotImplementedError
+            return session
 
-    def expire_session(self):
-        raise NotImplementedError
-
-    def restore_session(self):
-        raise NotImplementedError
+        return self.session_repository.create_session(
+            client_id=client_id,
+            rate_id=rate_id,
+            minutes=minutes,
+        )

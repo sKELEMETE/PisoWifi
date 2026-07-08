@@ -1,0 +1,15 @@
+import StatusCard from "../common/StatusCard";
+
+export default function ExpiredInfo() {
+    return (
+        <StatusCard
+            title="Session Status"
+            status="Expired"
+            color="#dc2626"
+        >
+            <p>Remaining Time: 00:00:00</p>
+
+            <p>Please purchase a new session.</p>
+        </StatusCard>
+    );
+}

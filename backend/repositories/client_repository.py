@@ -1,5 +1,4 @@
 from sqlalchemy import select
-
 from models.client import Client
 from repositories.base_repository import BaseRepository
 
@@ -37,3 +36,15 @@ class ClientRepository(BaseRepository):
         self.db.commit()
         self.db.refresh(client)
         return client
+
+    def get_or_create(self, mac_address: str):
+        client = self.get_by_mac(mac_address)
+
+        if client:
+            return client
+
+        client = Client(
+            mac_address=mac_address,
+        )
+
+        return self.create(client)
