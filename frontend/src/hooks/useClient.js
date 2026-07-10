@@ -25,7 +25,7 @@ export default function useClient() {
 
                 const response = await getClient();
 
-                setClient(response.data);
+                setClient(response.data.data);
 
                 setError(null);
 

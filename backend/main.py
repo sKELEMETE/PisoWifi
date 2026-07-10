@@ -1,8 +1,8 @@
-from api.v1.client import router as client_router
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from services.firewall_service import FirewallService
+from api.v1.client import router as client_router
 from api.v1.api import api_router
 from core.exceptions import register_exception_handlers
 
@@ -10,11 +10,20 @@ from api.v1.session import router as session_router
 from api.v1.voucher import router as voucher_router
 from api.v1.coin import router as coin_router
 from api.v1.health import router as health_router
+from scheduler.scheduler_service import SchedulerService
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    
+    scheduler = SchedulerService()
+    scheduler.start()
+    yield
+    scheduler.stop()
 
 app = FastAPI(
     title="PisoWiFi API",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

@@ -1,20 +1,13 @@
 import subprocess
 import logging
 
-from config import NFT_TABLE_NAME, NFT_SET_NAME
-
+print("LOADED FIREWALL SERVICE")
 logger = logging.getLogger(__name__)
 
 
 class FirewallService:
-    """
-    Production Firewall Service.
 
-    Responsible for modifying only the authenticated
-    nftables set. Firewall rules themselves never change.
-    """
-
-    def _run(self, command: list[str]):
+    def _run(self, command):
         result = subprocess.run(
             command,
             capture_output=True,
@@ -25,53 +18,105 @@ class FirewallService:
             raise RuntimeError(result.stderr.strip())
 
     def authorize(self, ip: str):
-        logger.info("Authorizing %s", ip)
+        logger.info("========== AUTHORIZE ==========")
+        logger.info("IP = %s", ip)
 
-        self._run([
-            "sudo",
-            "nft",
-            "add",
-            "element",
-            "inet",
-            NFT_TABLE_NAME,
-            NFT_SET_NAME,
-            "{",
-            ip,
-            "}",
-        ])
+        commands = [
+            [
+                "/usr/sbin/nft",
+                "add",
+                "element",
+                "inet",
+                "pisowifi",
+                "authenticated_clients",
+                "{",
+                ip,
+                "}",
+            ],
+            [
+                "/usr/sbin/nft",
+                "add",
+                "element",
+                "ip",
+                "nat",
+                "authenticated_clients",
+                "{",
+                ip,
+                "}",
+            ],
+        ]
+
+        for cmd in commands:
+            logger.info(cmd)
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+            )
+
+            logger.info("Return=%s", result.returncode)
+            logger.info("stdout=%s", result.stdout)
+            logger.info("stderr=%s", result.stderr)
 
     def remove(self, ip: str):
         logger.info("Removing %s", ip)
 
-        self._run([
-            "sudo",
-            "nft",
-            "delete",
-            "element",
-            "inet",
-            NFT_TABLE_NAME,
-            NFT_SET_NAME,
-            "{",
-            ip,
-            "}",
-        ])
+        commands = [
+            [
+                "/usr/sbin/nft",
+                "delete",
+                "element",
+                "inet",
+                "pisowifi",
+                "authenticated_clients",
+                "{",
+                ip,
+                "}",
+            ],
+            [
+                "/usr/sbin/nft",
+                "delete",
+                "element",
+                "ip",
+                "nat",
+                "authenticated_clients",
+                "{",
+                ip,
+                "}",
+            ],
+        ]
+
+        for cmd in commands:
+            try:
+                self._run(cmd)
+            except RuntimeError:
+                pass
 
     def flush(self):
-        logger.info("Flushing authenticated clients")
+        logger.info("Flushing firewall")
 
-        self._run([
-            "sudo",
-            "nft",
-            "flush",
-            "set",
-            "inet",
-            NFT_TABLE_NAME,
-            NFT_SET_NAME,
-        ])
+        commands = [
+            [
+                "/usr/sbin/nft",
+                "flush",
+                "set",
+                "inet",
+                "pisowifi",
+                "authenticated_clients",
+            ],
+            [
+                "/usr/sbin/nft",
+                "flush",
+                "set",
+                "ip",
+                "nat",
+                "authenticated_clients",
+            ],
+        ]
+
+        for cmd in commands:
+            self._run(cmd)
 
     def rebuild(self):
-        """
-        Reserved for future use.
-        Recovery currently performs rebuilding.
-        """
         pass

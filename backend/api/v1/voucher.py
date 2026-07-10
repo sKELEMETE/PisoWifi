@@ -13,29 +13,21 @@ from utils.api_response import success, error
 
 router = APIRouter(prefix="/api/v1/voucher", tags=["Voucher"])
 
-
 @router.post("/redeem/{code}/{mac}")
 def redeem_voucher(code: str, mac: str, db: Session = Depends(get_db)):
-
     validated_mac = MacRequest(mac=mac)
     validated_code = VoucherRequest(code=code)
-
-    mac = validated_mac.mac
-    code = validated_code.code
 
     voucher_repo = VoucherRepository(db)
     client_repo = ClientRepository(db)
     session_repo = SessionRepository(db)
-
     session_service = SessionService(session_repo)
 
-    client = client_repo.get_by_mac(mac)
-
+    client = client_repo.get_by_mac(validated_mac.mac)
     if not client:
         return error("Client not found")
 
-    voucher = voucher_repo.get_by_code(code)
-
+    voucher = voucher_repo.get_by_code(validated_code.code)
     if not voucher:
         return error("Invalid voucher")
 
@@ -46,15 +38,12 @@ def redeem_voucher(code: str, mac: str, db: Session = Depends(get_db)):
         return error("Voucher expired")
 
     rate_repo = RateRepository(db)
-
     rate = rate_repo.get_by_coin(0)
-
-    if not rate:
-        return error("Voucher rate not configured")
+    rate_id = rate.id if rate else None
 
     session = session_service.create_or_extend_session(
         client_id=client.id,
-        rate_id=rate.id,
+        rate_id=rate_id,
         minutes=voucher.minutes,
     )
 
