@@ -27,9 +27,9 @@ export default function useActiveSession(mac) {
 
             try {
 
-                const response = await getSession(mac);
+                const session = await getSession(mac);
 
-                setSession(response.data);
+                setSession(session);
 
                 setError(null);
 

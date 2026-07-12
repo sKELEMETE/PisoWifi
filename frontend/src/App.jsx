@@ -1,10 +1,18 @@
-import Layout from "./components/layout/Layout";
-import AppRoutes from "./routes";
+import Background from "./components/layout/Background";
+import PortalCard from "./components/layout/PortalCard";
 
 export default function App() {
+
     return (
-        <Layout>
-            <AppRoutes />
-        </Layout>
+
+        <main className="app">
+
+            <Background />
+
+            <PortalCard />
+
+        </main>
+
     );
+
 }

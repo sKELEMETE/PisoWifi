@@ -1,0 +1,65 @@
+@keyframes float{
+
+0%{
+
+transform:translateY(0px);
+
+}
+
+50%{
+
+transform:translateY(-25px);
+
+}
+
+100%{
+
+transform:translateY(0px);
+
+}
+
+}
+
+.blob{
+
+animation:float 18s ease-in-out infinite;
+
+}
+
+.blob2{
+
+animation-duration:24s;
+
+}
+
+.blob3{
+
+animation-duration:30s;
+
+}
+
+.fade{
+
+    animation:fadeIn .35s ease;
+
+}
+
+@keyframes fadeIn{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(10px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
