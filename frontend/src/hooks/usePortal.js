@@ -1,29 +1,49 @@
 import { useEffect } from "react";
 
-import { getClient } from "../api/clientApi";
+import PortalState from "../constants/portalState";
+
+import useClient from "./useClient";
+
 import { getSession } from "../api/sessionApi";
 
 import usePortalStore from "../store/portalStore";
+import useSessionStore from "../store/sessionStore";
 
 export default function usePortal() {
 
     const {
 
-        client,
-        session,
         portalState,
+
         loading,
+
         error,
 
-        setClient,
-        setSession,
         setPortalState,
+
         setLoading,
+
         setError,
 
     } = usePortalStore();
 
+    const {
+
+        setSession,
+
+    } = useSessionStore();
+
+    const {
+
+        client,
+
+    } = useClient();
+
     useEffect(() => {
+
+        if (!client) {
+            return;
+        }
 
         let interval;
 
@@ -31,55 +51,55 @@ export default function usePortal() {
 
             try {
 
-                const clientResponse =
-                    await getClient();
+                const response =
+                    await getSession(
+                        client.mac_address
+                    );
 
-                const currentClient =
-                    clientResponse.data.data;
+                if (!response.success) {
 
-                setClient(currentClient);
+                    setSession(null);
 
-                if (!currentClient) {
+                    setPortalState(
+                        PortalState.INSERT
+                    );
 
-                    setPortalState("error");
+                    setError(null);
 
                     return;
 
                 }
 
-                const currentSession =
-                    await getSession(
-                        currentClient.mac_address
+                const session =
+                    response.data;
+
+                setSession(session);
+
+                if (session.is_paused) {
+
+                    setPortalState(
+                        PortalState.PAUSED
                     );
 
-                setSession(currentSession);
+                }
 
-            
-            if (!currentSession) {
+                else if (
+                    session.remaining_seconds <= 0
+                ) {
 
-               setPortalState("insert");
+                    setPortalState(
+                        PortalState.EXPIRED
+                    );
 
-           }
+                }
 
-          else if (currentSession.is_paused) {
+                else {
 
-               setPortalState("paused");
+                    setPortalState(
+                        PortalState.ACTIVE
+                    );
 
-          }
-
-          else if (
-               currentSession.remaining_seconds <= 0 
-          ) {
-
-               setPortalState("expired");
-
-            }
-
-            else {
-
-               setPortalState("active");
-
-            }
+                }
 
                 setError(null);
 
@@ -89,7 +109,11 @@ export default function usePortal() {
 
                 console.error(err);
 
-                setPortalState("insert");
+                setSession(null);
+
+                setPortalState(
+                    PortalState.INSERT
+                );
 
                 setError(err);
 
@@ -105,18 +129,18 @@ export default function usePortal() {
 
         refresh();
 
-        interval =
-            setInterval(refresh, 5000);
+        interval = setInterval(
+            refresh,
+            5000
+        );
 
         return () => clearInterval(interval);
 
-    }, []);
+    }, [client]);
 
     return {
 
         client,
-
-        session,
 
         portalState,
 

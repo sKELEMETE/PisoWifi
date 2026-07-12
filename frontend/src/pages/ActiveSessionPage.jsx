@@ -1,8 +1,11 @@
+import ConnectionInfo from "../components/session/ConnectionInfo";
 import SessionHeader from "../components/session/SessionHeader";
 import SessionTimer from "../components/session/SessionTimer";
 import SessionInfo from "../components/session/SessionInfo";
 import SessionActions from "../components/session/SessionActions";
 
+import HealthInfo from "../components/session/HealthInfo";
+import useHealth from "../hooks/useHealth";
 import LoadingScreen from "../components/common/LoadingScreen";
 import ErrorScreen from "../components/common/ErrorScreen";
 
@@ -12,6 +15,10 @@ import useActiveSession from "../hooks/useActiveSession";
 export default function ActiveSessionPage() {
 
     const {
+        health,
+    } = useHealth();
+
+    const {
         client,
     } = useClient();
 
@@ -19,9 +26,7 @@ export default function ActiveSessionPage() {
         session,
         loading,
         error,
-    } = useActiveSession(
-        client?.mac_address
-    );
+    } = useActiveSession();
 
     if (loading) {
 
@@ -51,6 +56,10 @@ export default function ActiveSessionPage() {
 
             <SessionHeader />
 
+            <ConnectionInfo
+                client={client}
+            />
+
             <br />
 
             <SessionTimer
@@ -61,6 +70,10 @@ export default function ActiveSessionPage() {
 
             <SessionInfo
                 session={session}
+            />
+
+            <HealthInfo
+                health={health}
             />
 
             <SessionActions />

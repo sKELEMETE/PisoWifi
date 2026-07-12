@@ -1,19 +1,15 @@
 import { create } from "zustand";
+import PortalState from "../constants/portalState";
 
 const usePortalStore = create((set) => ({
 
-    client: null,
-
     session: null,
 
-    portalState: "loading",
+    portalState: PortalState.LOADING,
 
     loading: true,
 
     error: null,
-
-    setClient: (client) =>
-        set({ client }),
 
     setSession: (session) =>
         set({ session }),
