@@ -11,8 +11,8 @@ from coin_serial.serial_manager import SerialManager
 
 logger = logging.getLogger(__name__)
 
-ACTIVE_MAC_FILE = "/tmp/active_mac.txt"
-PENDING_COIN_FILE = "/tmp/pending_coin.txt"
+ACTIVE_MAC_FILE = "/opt/pisowifi/run/active_mac.txt"
+PENDING_COIN_FILE = "/opt/pisowifi/run/pending_coin.txt"
 RESERVATION_TIMEOUT = 30  # seconds of inactivity before auto-finalize and release
 
 
@@ -73,7 +73,7 @@ class CoinListener:
         except Exception:
             pass
 
-        coins_file = f"/tmp/session_coins_{mac}.json"
+        coins_file = f"/opt/pisowifi/run/session_coins_{mac}.json"
         coins: list[int] = []
         try:
             if os.path.exists(coins_file):
@@ -108,7 +108,7 @@ class CoinListener:
 
         Uses a fresh DB session so this can run safely from a background thread.
         """
-        coins_file = f"/tmp/session_coins_{mac}.json"
+        coins_file = f"/opt/pisowifi/run/session_coins_{mac}.json"
         coins: list[int] = []
 
         try:

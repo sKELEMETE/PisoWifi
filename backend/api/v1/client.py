@@ -21,6 +21,23 @@ def get_current_client(request: Request, db: Session = Depends(get_db)):
     if not client:
         client = repo.get_or_create(mac_address)
 
+    old_ip = client.current_ip
+    if old_ip and old_ip != ip_address:
+        from repositories.session_repository import SessionRepository
+        from services.firewall_service import FirewallService
+        session_repo = SessionRepository(db)
+        active_session = session_repo.get_active_session_by_client_id(client.id)
+        if active_session:
+            firewall = FirewallService()
+            try:
+                firewall.remove(old_ip)
+            except Exception:
+                pass
+            try:
+                firewall.authorize(ip_address)
+            except Exception:
+                pass
+
     client.current_ip = ip_address
     repo.update(client)
 

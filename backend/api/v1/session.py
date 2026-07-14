@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from database import get_db
 from models.client import Client
 from models.session import Session as SessionModel
+from repositories.session_repository import SessionRepository
+from repositories.client_repository import ClientRepository
 from services.firewall_service import FirewallService
 from schemas.validation import MacRequest
 from utils.api_response import success, error

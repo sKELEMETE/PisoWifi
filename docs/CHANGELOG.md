@@ -7,6 +7,11 @@ The format is based on Keep a Changelog.
 
 ### Performance & Reliability
 
+- **Enabled startup sequence and recovery** (`main.py`): Resolved `R-01` by running `StartupSequence` on boot to wait for database ready, perform power outage recovery, and rebuild firewall rules.
+- **Moved coin drop logging to persistent storage** (`coin.py` & `coin_listener.py`): Resolved `R-02` by migrating transaction data from volatile `/tmp/` to persistent `/opt/pisowifi/run/` and adding startup reconciliation to prevent coin loss during unexpected reboots.
+- **Added declarative Firewall State Auditor** (`jobs.py` & `scheduler_service.py`): Resolved `R-03` by implementing a periodic 30s `sync_firewall` audit job to reconcile elements in `nftables` sets with active database sessions.
+- **Implemented dynamic IP renewal migration** (`client.py`): Resolved `R-04` by automatically moving firewall rules and shaping limits when an active client receives a new IP address from DHCP.
+- **Implemented Clock Jump Compensation Engine** (`jobs.py`): Resolved `R-05` by detecting system clock jumps (e.g. NTP updates) using monotonic timers and automatically adjusting active session `end_time` values.
 - **Consolidated client & session queries in GET /api/v1/session** (`session.py`): Query client and session (active or paused) using a single `LEFT OUTER JOIN` database lookup instead of 3 sequential repository queries. Saves 2 database round-trips per 5-second client status poll.
 - **Removed duplicate methods in SessionRepository** (`session_repository.py`): Cleaned up unused legacy query methods `get_active_by_client` and `get_paused_by_client` to decrease maintenance friction.
 - **Removed spurious DB commit on session poll** (`session.py`): Every 5-second session poll was writing `remaining_minutes` back to MySQL, generating 12 writes/minute/client. Eliminated since the value is always recomputed from `end_time`.

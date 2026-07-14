@@ -15,13 +15,40 @@ from fastapi.staticfiles import StaticFiles
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import logging
+    logger = logging.getLogger(__name__)
+
     # Set up root tc qdiscs for bandwidth shaping (idempotent)
     try:
         from services.bandwidth_service import BandwidthService
         BandwidthService().setup()
     except Exception as exc:
-        import logging
-        logging.getLogger(__name__).warning("Bandwidth setup failed: %s", exc)
+        logger.warning("Bandwidth setup failed: %s", exc)
+
+    # Run startup recovery sequence
+    from database import SessionLocal
+    from recovery.database_recovery import DatabaseRecovery
+    from recovery.power_recovery import PowerRecovery
+    from recovery.session_recovery import SessionRecovery
+    from recovery.firewall_recovery import FirewallRecovery
+    from recovery.startup_sequence import StartupSequence
+    from repositories.session_repository import SessionRepository
+    from services.firewall_service import FirewallService
+
+    db = SessionLocal()
+    try:
+        repo = SessionRepository(db)
+        startup = StartupSequence(
+            database_recovery=DatabaseRecovery(),
+            power_recovery=PowerRecovery(repo, db),
+            session_recovery=SessionRecovery(repo),
+            firewall_recovery=FirewallRecovery(repo, FirewallService()),
+        )
+        startup.run()
+    except Exception as exc:
+        logger.error("Startup sequence failed: %s", exc)
+    finally:
+        db.close()
 
     scheduler = SchedulerService()
     scheduler.start()

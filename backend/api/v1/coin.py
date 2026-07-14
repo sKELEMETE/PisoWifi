@@ -19,8 +19,8 @@ from utils.api_response import success, error
 
 router = APIRouter(prefix="/api/v1/coin", tags=["Coin"])
 
-ACTIVE_MAC_FILE = "/tmp/active_mac.txt"
-PENDING_COIN_FILE = "/tmp/pending_coin.txt"
+ACTIVE_MAC_FILE = "/opt/pisowifi/run/active_mac.txt"
+PENDING_COIN_FILE = "/opt/pisowifi/run/pending_coin.txt"
 RESERVATION_TIMEOUT = 30  # seconds
 
 
@@ -95,7 +95,7 @@ def get_coin_status():
 @router.post("/activate/{mac}")
 def activate_slot(mac: str, db: Session = Depends(get_db)):
     validated = MacRequest(mac=mac)
-    coins_file = f"/tmp/session_coins_{validated.mac}.json"
+    coins_file = f"/opt/pisowifi/run/session_coins_{validated.mac}.json"
 
     # Enforce maximum concurrent connections to prevent kernel memory exhaustion
     client_repo = ClientRepository(db)
@@ -162,7 +162,7 @@ def activate_slot(mac: str, db: Session = Depends(get_db)):
 @router.post("/release/{mac}")
 def release_slot(mac: str, db: Session = Depends(get_db)):
     validated = MacRequest(mac=mac)
-    coins_file = f"/tmp/session_coins_{validated.mac}.json"
+    coins_file = f"/opt/pisowifi/run/session_coins_{validated.mac}.json"
 
     try:
         # Only the owner may release
@@ -217,7 +217,7 @@ def release_slot(mac: str, db: Session = Depends(get_db)):
 @router.post("/test/{mac}/{value}")
 def test_coin(mac: str, value: int):
     validated_mac = MacRequest(mac=mac)
-    coins_file = f"/tmp/session_coins_{validated_mac.mac}.json"
+    coins_file = f"/opt/pisowifi/run/session_coins_{validated_mac.mac}.json"
 
     if not _is_reserved():
         return error("Slot not active")

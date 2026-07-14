@@ -5,6 +5,7 @@ import config
 from scheduler.jobs import (
     backup,
     expire_sessions,
+    sync_firewall,
 )
 
 
@@ -20,6 +21,13 @@ class SchedulerService:
             "interval",
             seconds=interval,
             id="expire_sessions",
+        )
+
+        self.scheduler.add_job(
+            sync_firewall,
+            "interval",
+            seconds=30,
+            id="sync_firewall",
         )
 
         hour, minute = map(int, config.BACKUP_TIME.split(":"))
