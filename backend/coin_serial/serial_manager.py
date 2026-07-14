@@ -38,7 +38,7 @@ class SerialManager:
                 print("[Serial] Connected.")
                 print(f"Connected to {device}")
 
-            except serial.SerialException:
+            except (serial.SerialException, OSError):
                 self.set_connected(False)
                 print("Waiting for coin acceptor...")
                 time.sleep(config.SERIAL_RECONNECT_INTERVAL)
@@ -50,7 +50,7 @@ class SerialManager:
         try:
             return self.reader.read_line()
 
-        except serial.SerialException:
+        except (serial.SerialException, OSError):
             self.set_connected(False)
             print("[Serial] Device disconnected.")
 

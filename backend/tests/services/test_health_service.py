@@ -5,6 +5,6 @@ def test_health():
 
     service = HealthService()
 
-    result = service.check()
+    result = service.get_status()
 
     assert result["database"] == "healthy"

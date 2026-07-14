@@ -547,3 +547,43 @@ transform:scale(1);
     color: #ffd54a;
 }
 
+/* Animated border pulse for countdown modal */
+.countdown-active {
+    animation: fadeIn 0.3s ease, borderPulse 1s infinite ease-in-out;
+}
+
+@keyframes borderPulse {
+    0% {
+        border-color: rgba(90, 223, 255, 0.25);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 
+                    0 0 15px rgba(90, 223, 255, 0.15),
+                    0 0 30px rgba(102, 120, 255, 0.05);
+        transform: scale(1);
+    }
+    50% {
+        border-color: rgba(90, 223, 255, 0.95);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 
+                    0 0 35px rgba(90, 223, 255, 0.6),
+                    0 0 70px rgba(102, 120, 255, 0.4);
+        transform: scale(1.008);
+    }
+    100% {
+        border-color: rgba(90, 223, 255, 0.25);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 
+                    0 0 15px rgba(90, 223, 255, 0.15),
+                    0 0 30px rgba(102, 120, 255, 0.05);
+        transform: scale(1);
+    }
+}
+
+/* Secondary button style for Pause/Resume buttons */
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    box-shadow: 0 10px 20px rgba(255, 255, 255, 0.05) !important;
+}
+

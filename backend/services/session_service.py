@@ -9,7 +9,7 @@ class SessionService:
         self.client_repository = ClientRepository(self.session_repository.db)
         self.firewall = FirewallService()
 
-    def create_or_extend_session(self, client_id: int, rate_id: int, minutes: int):
+    def create_or_extend_session(self, client_id: int, rate_id: int, minutes: int, authorize: bool = True):
         session = self.session_repository.get_active_session_by_client_id(client_id)
         client = self.client_repository.get_by_id(client_id)
         now = datetime.now()
@@ -31,7 +31,7 @@ class SessionService:
         if client:
             client.status = "ONLINE"
             self.session_repository.db.commit()
-            if client.current_ip:
+            if client.current_ip and authorize:
                 self.firewall.authorize(client.current_ip)
 
         return session

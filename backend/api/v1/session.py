@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 from datetime import datetime, timedelta
 from database import get_db
-from repositories.session_repository import SessionRepository
-from repositories.client_repository import ClientRepository
+from models.client import Client
+from models.session import Session as SessionModel
 from services.firewall_service import FirewallService
 from schemas.validation import MacRequest
 from utils.api_response import success, error
@@ -13,18 +14,25 @@ router = APIRouter(prefix="/api/v1/session", tags=["Session"])
 @router.get("/{mac}")
 def get_session(mac: str, db: Session = Depends(get_db)):
     validated = MacRequest(mac=mac)
-    client_repo = ClientRepository(db)
-    session_repo = SessionRepository(db)
 
-    client = client_repo.get_by_mac(validated.mac)
-    if not client:
+    # Consolidate client and session lookups into a single LEFT OUTER JOIN query
+    stmt = (
+        select(Client, SessionModel)
+        .outerjoin(
+            SessionModel,
+            (SessionModel.client_id == Client.id) & SessionModel.status.in_(["ACTIVE", "PAUSED"])
+        )
+        .where(Client.mac_address == validated.mac)
+        .order_by(SessionModel.id.desc())
+    )
+    row = db.execute(stmt).first()
+
+    if not row:
         return error("Client not found", ["MAC invalid"])
 
-    session = session_repo.get_active_session_by_client_id(client.id)
+    client, session = row
     if not session:
-        session = session_repo.get_paused_session_by_client_id(client.id)
-        if not session:
-            return error("No active session", ["Session missing"])
+        return error("No active session", ["Session missing"])
 
     now = datetime.now()
     if session.status == "PAUSED":
@@ -32,9 +40,6 @@ def get_session(mac: str, db: Session = Depends(get_db)):
         remaining_seconds = session.remaining_minutes or 0
     else:
         remaining_seconds = max(0, int((session.end_time - now).total_seconds()))
-        # Mirror runtime duration state data back into model metrics tracking records safely
-        session.remaining_minutes = int(remaining_seconds / 60)
-        db.commit()
 
 
     hours = remaining_seconds // 3600

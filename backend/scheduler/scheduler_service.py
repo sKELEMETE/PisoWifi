@@ -4,10 +4,7 @@ import config
 
 from scheduler.jobs import (
     backup,
-    check_health,
-    cleanup,
     expire_sessions,
-    sync_firewall,
 )
 
 
@@ -25,27 +22,6 @@ class SchedulerService:
             id="expire_sessions",
         )
 
-        self.scheduler.add_job(
-            sync_firewall,
-            "interval",
-            seconds=interval,
-            id="sync_firewall",
-        )
-
-        self.scheduler.add_job(
-            check_health,
-            "interval",
-            seconds=interval,
-            id="health",
-        )
-
-        self.scheduler.add_job(
-            cleanup,
-            "interval",
-            minutes=30,
-            id="cleanup",
-        )
-
         hour, minute = map(int, config.BACKUP_TIME.split(":"))
 
         self.scheduler.add_job(
@@ -57,6 +33,6 @@ class SchedulerService:
         )
 
         self.scheduler.start()
-    
+
     def stop(self):
         self.scheduler.shutdown(wait=True)

@@ -14,22 +14,6 @@ class SessionRepository(BaseRepository):
     def get_by_id(self, session_id: int):
         return self.db.get(Session, session_id)
 
-    def get_active_by_client(self, client_id: int):
-        stmt = (
-            select(Session)
-            .where(Session.client_id == client_id)
-            .where(Session.status == "ACTIVE")
-        )
-        return self.db.execute(stmt).scalar_one_or_none()
-
-    def get_paused_by_client(self, client_id: int):
-        stmt = (
-            select(Session)
-            .where(Session.client_id == client_id)
-            .where(Session.status == "PAUSED")
-        )
-        return self.db.execute(stmt).scalar_one_or_none()
-
     def get_expired_sessions(self):
         stmt = select(Session).where(Session.status == "EXPIRED")
         return self.db.execute(stmt).scalars().all()
@@ -73,6 +57,14 @@ class SessionRepository(BaseRepository):
             .order_by(Session.id.desc())
         )
         return self.db.execute(stmt).scalars().first()
+
+    def count_active_sessions(self) -> int:
+        """Return count of ACTIVE sessions without ORM hydration."""
+        from sqlalchemy import func
+        result = self.db.execute(
+            select(func.count()).select_from(Session).where(Session.status == "ACTIVE")
+        )
+        return result.scalar_one()
 
     def create_session(
         self,

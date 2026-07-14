@@ -1,8 +1,10 @@
 import subprocess
 import logging
+from services.bandwidth_service import BandwidthService
 
-print("LOADED FIREWALL SERVICE")
 logger = logging.getLogger(__name__)
+
+_bandwidth = BandwidthService()
 
 
 class FirewallService:
@@ -20,6 +22,7 @@ class FirewallService:
     def authorize(self, ip: str):
         logger.info("========== AUTHORIZE ==========")
         logger.info("IP = %s", ip)
+
 
         commands = [
             [
@@ -59,6 +62,12 @@ class FirewallService:
             logger.info("stdout=%s", result.stdout)
             logger.info("stderr=%s", result.stderr)
 
+        # Apply per-client bandwidth limit
+        try:
+            _bandwidth.add_client(ip)
+        except Exception as exc:
+            logger.warning("Bandwidth limit failed for %s: %s", ip, exc)
+
     def remove(self, ip: str):
         logger.info("Removing %s", ip)
 
@@ -92,6 +101,12 @@ class FirewallService:
                 self._run(cmd)
             except RuntimeError:
                 pass
+
+        # Remove per-client bandwidth shaping
+        try:
+            _bandwidth.remove_client(ip)
+        except Exception as exc:
+            logger.warning("Bandwidth remove failed for %s: %s", ip, exc)
 
     def flush(self):
         logger.info("Flushing firewall")

@@ -11,7 +11,7 @@ class CoinService:
     def validate_coin(self, coin_value):
         return self.rate_repository.get_by_coin(coin_value)
 
-    def process_coin(self, mac_address, coin_value):
+    def process_coin(self, mac_address, coin_value, authorize: bool = True):
         rate = self.rate_repository.get_by_coin(coin_value)
         if rate is None:
             return False
@@ -21,6 +21,7 @@ class CoinService:
             client.id,
             rate.id,
             rate.minutes,
+            authorize=authorize,
         )
 
         sale = Sale(

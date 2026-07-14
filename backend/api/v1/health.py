@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func
 
 from database import get_db
-from repositories.session_repository import SessionRepository
-
+from models.session import Session as SessionModel
 from utils.api_response import success
 
 router = APIRouter(prefix="/api/v1/health", tags=["Health"])
@@ -19,15 +19,18 @@ def health(db: Session = Depends(get_db)):
     }
 
     try:
-        repo = SessionRepository(db)
+        active_count = db.execute(
+            select(func.count()).select_from(SessionModel).where(SessionModel.status == "ACTIVE")
+        ).scalar_one()
 
-        active = repo.get_active_sessions()
-        paused = repo.get_paused_sessions()
+        paused_count = db.execute(
+            select(func.count()).select_from(SessionModel).where(SessionModel.status == "PAUSED")
+        ).scalar_one()
 
         status["database"] = True
-        status["active_sessions"] = len(active)
-        status["paused_sessions"] = len(paused)
-        status["sessions"] = len(active) + len(paused)
+        status["active_sessions"] = active_count
+        status["paused_sessions"] = paused_count
+        status["sessions"] = active_count + paused_count
 
     except Exception:
         return {
