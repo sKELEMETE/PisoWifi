@@ -1,7 +1,5 @@
 import Header from "./Header";
-import usePricing from "../../hooks/usePricing";
 import Divider from "../common/Divider";
-import PriceCard from "../common/PriceCard";
 
 import PortalView from "../portal/PortalView";
 
@@ -17,15 +15,6 @@ export default function PortalCard() {
 
     } = usePortal();
 
-    const {
-
-        plans,
-
-        loading,
-
-        error,
-
-    } = usePricing();
 
     return (
 
@@ -42,34 +31,6 @@ export default function PortalCard() {
                 session={session}
 
             />
-
-            <Divider />
-
-            <div className="pricing">
-                {loading ? (
-
-                    <p>Loading pricing...</p>
-
-                ): error ? (
-
-                <p>Unable to load pricing.</p>
-
-                ) : (
-
-                    plans.map((plan) => (
-
-                        <PriceCard
-                            key={plan.id}
-                            amount={plan.amount}
-                            minutes={plan.minutes}
-                            featured={plan.amount === 5}
-                        />
-
-                    )) 
-
-                )}
-
-            </div>
 
         </section>
 

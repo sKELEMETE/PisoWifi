@@ -2,12 +2,14 @@ import Button from "../common/Button";
 
 import { resumeSession } from "../../api/sessionApi";
 
-import usePortalStore from "../../store/portalStore";
+import useSessionStore from "../../store/sessionStore";
+
+import { formatDuration } from "../../utils/time";
 
 export default function PausedView() {
 
     const session =
-        usePortalStore(
+        useSessionStore(
             state => state.session
         );
 
@@ -42,6 +44,18 @@ export default function PausedView() {
                 Session Paused
 
             </h2>
+
+            <p className="paused-label">
+
+                Time Remaining
+
+            </p>
+
+            <div className="timer">
+
+                {formatDuration(session?.remaining_seconds ?? 0)}
+
+            </div>
 
             <Button
                 onClick={handleResume}

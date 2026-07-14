@@ -1,6 +1,10 @@
 import ConnectionBadge from "../common/ConnectionBadge";
+import usePortalStore from "../../store/portalStore";
+import PortalState from "../../constants/portalState";
 
 export default function Header() {
+    const portalState = usePortalStore(state => state.portalState);
+    const online = portalState === PortalState.ACTIVE;
 
     return (
 
@@ -35,8 +39,8 @@ export default function Header() {
             </div>
 
             <ConnectionBadge
-                online={true}
-                text="Connected"
+                online={online}
+                text={online ? "Connected" : "Disconnected"}
             />
 
         </header>

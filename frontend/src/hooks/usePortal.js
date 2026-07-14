@@ -29,6 +29,8 @@ export default function usePortal() {
 
     const {
 
+        session,
+
         setSession,
 
     } = useSessionStore();
@@ -70,12 +72,12 @@ export default function usePortal() {
 
                 }
 
-                const session =
+                const sessionData =
                     response.data;
 
-                setSession(session);
+                setSession(sessionData);
 
-                if (session.is_paused) {
+                if (sessionData.status === "PAUSED") {
 
                     setPortalState(
                         PortalState.PAUSED
@@ -84,7 +86,7 @@ export default function usePortal() {
                 }
 
                 else if (
-                    session.remaining_seconds <= 0
+                    sessionData.remaining_seconds <= 0
                 ) {
 
                     setPortalState(
@@ -136,7 +138,7 @@ export default function usePortal() {
 
         return () => clearInterval(interval);
 
-    }, [client]);
+    }, [client, setSession, setPortalState, setError, setLoading]);
 
     return {
 
@@ -148,6 +150,9 @@ export default function usePortal() {
 
         error,
 
+        session,
+
     };
 
 }
+

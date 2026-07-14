@@ -60,8 +60,9 @@ class SessionRepository(BaseRepository):
             select(Session)
             .where(Session.client_id == client_id)
             .where(Session.status == "ACTIVE")
+            .order_by(Session.id.desc())
         )
-        return self.db.execute(stmt).scalar_one_or_none()
+        return self.db.execute(stmt).scalars().first()
 
 
     def get_paused_session_by_client_id(self, client_id: int):
@@ -69,8 +70,9 @@ class SessionRepository(BaseRepository):
             select(Session)
             .where(Session.client_id == client_id)
             .where(Session.status == "PAUSED")
+            .order_by(Session.id.desc())
         )
-        return self.db.execute(stmt).scalar_one_or_none()
+        return self.db.execute(stmt).scalars().first()
 
     def create_session(
         self,
