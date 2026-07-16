@@ -165,7 +165,7 @@ def release_slot(mac: str, db: Session = Depends(get_db)):
                 session_service=session_service,
                 sale_repository=sales_repository,
             )
-            coin_service.process_coins_bulk(validated.mac, coins, authorize=True)
+            coin_service.process_coins_bulk(validated.mac, coins, authorize=True, commit=False)
 
         # Clean up reservation database records
         db.query(CoinReservation).filter(CoinReservation.mac == validated.mac).delete()

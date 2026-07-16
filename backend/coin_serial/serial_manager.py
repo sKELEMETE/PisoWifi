@@ -58,6 +58,13 @@ class SerialManager:
             self.set_connected(False)
             print("[Serial] Device disconnected.")
 
+            # Explicitly close the serial connection to prevent file descriptor leaks
+            if self.reader and hasattr(self.reader, "serial") and self.reader.serial:
+                try:
+                    self.reader.serial.close()
+                except Exception:
+                    pass
+
             self.reader = None
 
             self.connect()

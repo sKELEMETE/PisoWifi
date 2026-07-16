@@ -72,6 +72,7 @@ class SessionRepository(BaseRepository):
         rate_id: int,
         minutes: int,
         pause_allowed: bool = True,
+        commit: bool = True,
     ):
         now = datetime.now()
 
@@ -87,7 +88,8 @@ class SessionRepository(BaseRepository):
         )
 
         self.db.add(session)
-        self.db.commit()
-        self.db.refresh(session)
+        if commit:
+            self.db.commit()
+            self.db.refresh(session)
 
         return session

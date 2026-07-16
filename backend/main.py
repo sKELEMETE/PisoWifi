@@ -26,6 +26,13 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Bandwidth setup failed: %s", exc)
 
+    # Wait for database to be available before running migrations
+    try:
+        from recovery.database_recovery import DatabaseRecovery
+        DatabaseRecovery().wait_until_available()
+    except Exception as exc:
+        logger.warning("Database connection check failed: %s", exc)
+
     # Ensure all database migrations are applied (idempotent)
     try:
         from alembic.config import Config

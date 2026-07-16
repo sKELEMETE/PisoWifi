@@ -1,7 +1,10 @@
+import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI):
@@ -39,11 +42,12 @@ def register_exception_handlers(app: FastAPI):
         request: Request,
         exc: Exception
     ):
+        logger.exception("Unhandled server exception: %s", exc)
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
-                "message": str(exc),
+                "message": "Internal server error. Please check backend logs or contact the administrator.",
                 "errors": [],
             },
         )

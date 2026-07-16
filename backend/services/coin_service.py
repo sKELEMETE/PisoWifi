@@ -17,24 +17,32 @@ class CoinService:
             return False
 
         client = self.client_repository.get_or_create(mac_address)
-        session = self.session_service.create_or_extend_session(
-            client.id,
-            rate.id,
-            rate.minutes,
-            authorize=authorize,
-        )
+        db = self.sale_repository.db
+        try:
+            session = self.session_service.create_or_extend_session(
+                client.id,
+                rate.id,
+                rate.minutes,
+                authorize=authorize,
+                commit=False,
+            )
 
-        sale = Sale(
-            session_id=session.id,
-            rate_id=rate.id,
-            amount=coin_value,
-            minutes=rate.minutes,
-            payment_method=PaymentMethod.COIN,
-        )
-        self.sale_repository.create(sale)
-        return session
+            sale = Sale(
+                session_id=session.id,
+                rate_id=rate.id,
+                amount=coin_value,
+                minutes=rate.minutes,
+                payment_method=PaymentMethod.COIN,
+            )
+            self.sale_repository.create(sale, commit=False)
+            db.commit()
+            db.refresh(session)
+            return session
+        except Exception as exc:
+            db.rollback()
+            raise exc
 
-    def process_coins_bulk(self, mac_address: str, coins: list[int], authorize: bool = True):
+    def process_coins_bulk(self, mac_address: str, coins: list[int], authorize: bool = True, commit: bool = True):
         if not coins:
             return None
 
@@ -47,26 +55,39 @@ class CoinService:
         if rate is None:
             rate = self.rate_repository.get_by_coin(20) or self.rate_repository.get_by_coin(1)
 
+        if rate is None:
+            raise RuntimeError("No rates configured in database.")
+
         client = self.client_repository.get_or_create(mac_address)
-        session = self.session_service.create_or_extend_session(
-            client.id,
-            rate.id,
-            total_minutes,
-            authorize=authorize,
-            pause_allowed=pause_allowed,
-        )
-
-        # Insert Sale records for each coin (minutes=0 to prevent double-crediting)
-        for coin_val in coins:
-            coin_rate = self.rate_repository.get_by_coin(coin_val)
-            rate_id = coin_rate.id if coin_rate else rate.id
-            sale = Sale(
-                session_id=session.id,
-                rate_id=rate_id,
-                amount=coin_val,
-                minutes=0,
-                payment_method=PaymentMethod.COIN,
+        db = self.sale_repository.db
+        try:
+            session = self.session_service.create_or_extend_session(
+                client.id,
+                rate.id,
+                total_minutes,
+                authorize=authorize,
+                pause_allowed=pause_allowed,
+                commit=False,
             )
-            self.sale_repository.create(sale)
 
-        return session
+            # Insert Sale records for each coin (minutes=0 to prevent double-crediting)
+            for coin_val in coins:
+                coin_rate = self.rate_repository.get_by_coin(coin_val)
+                rate_id = coin_rate.id if coin_rate else rate.id
+                sale = Sale(
+                    session_id=session.id,
+                    rate_id=rate_id,
+                    amount=coin_val,
+                    minutes=0,
+                    payment_method=PaymentMethod.COIN,
+                )
+                self.sale_repository.create(sale, commit=False)
+
+            if commit:
+                db.commit()
+                db.refresh(session)
+            return session
+        except Exception as exc:
+            if commit:
+                db.rollback()
+            raise exc

@@ -39,7 +39,7 @@ def check_expired_reservations(db):
                     session_service=SessionService(SessionRepository(db)),
                     sale_repository=SalesRepository(db),
                 )
-                coin_service.process_coins_bulk(mac, coins, authorize=True)
+                coin_service.process_coins_bulk(mac, coins, authorize=True, commit=False)
 
             db.query(CoinReservation).filter(CoinReservation.mac == mac).delete()
             db.query(PendingCoin).filter(PendingCoin.mac == mac).delete()

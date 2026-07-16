@@ -57,7 +57,7 @@ class StartupSequence:
                 if coins:
                     logger.info("Startup Recovery: Reconciling %d coin(s) for client %s.", len(coins), mac)
                     try:
-                        coin_service.process_coins_bulk(mac, coins, authorize=True)
+                        coin_service.process_coins_bulk(mac, coins, authorize=True, commit=False)
                         db.query(PendingCoin).filter(PendingCoin.mac == mac).delete()
                         db.query(CoinReservation).filter(CoinReservation.mac == mac).delete()
                         db.commit()
@@ -69,11 +69,40 @@ class StartupSequence:
         finally:
             db.close()
 
+    def _seed_default_rates(self):
+        from database import SessionLocal
+        from models.rate import Rate
+        import config
+
+        db = SessionLocal()
+        try:
+            count = db.query(Rate).count()
+            if count == 0:
+                logger.info("Rates table is empty. Seeding default rates...")
+                voucher_rate = Rate(coin_value=0, minutes=0, enabled=True)
+                db.add(voucher_rate)
+                for coin, (minutes, _) in config.PRICING_TABLE.items():
+                    rate = Rate(coin_value=coin, minutes=minutes, enabled=True)
+                    db.add(rate)
+                db.commit()
+                logger.info("Successfully seeded default rates.")
+        except Exception as exc:
+            db.rollback()
+            logger.error("Failed to seed default rates: %s", exc)
+        finally:
+            db.close()
+
     def run(self):
         logger.info("========== STARTUP ==========")
 
         logger.info("1. Waiting for database...")
         self.database_recovery.wait_until_available()
+
+        logger.info("1.2. Seeding default rates...")
+        try:
+            self._seed_default_rates()
+        except Exception as exc:
+            logger.error("Rates seeding failed: %s", exc)
 
         logger.info("1.5. Reconciling pending coins...")
         try:

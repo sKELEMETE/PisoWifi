@@ -41,6 +41,11 @@ def redeem_voucher(code: str, mac: str, db: Session = Depends(get_db)):
     rate = rate_repo.get_by_coin(0)
     rate_id = rate.id if rate else None
 
+    if not rate_id:
+        from models.rate import Rate
+        first_rate = db.query(Rate).filter(Rate.enabled.is_(True)).first()
+        rate_id = first_rate.id if first_rate else None
+
     session = session_service.create_or_extend_session(
         client_id=client.id,
         rate_id=rate_id,

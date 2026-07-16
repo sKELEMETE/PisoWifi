@@ -74,7 +74,8 @@ def run_upgrade(base_dir: str) -> bool:
     try:
         # 1. Pre-upgrade backup
         logger.info("Step 1: Creating configuration validation backup...")
-        backup_path = create_and_validate_backup(base_dir)
+        backup_dir = os.path.join(base_dir, "backups")
+        backup_path = create_and_validate_backup(base_dir, backup_dir)
         logger.info(f"Backup successfully archived to: {backup_path}")
 
         # 2. Configuration migration
@@ -86,11 +87,67 @@ def run_upgrade(base_dir: str) -> bool:
         sys.path.insert(0, os.path.join(base_dir, "backend"))
         import config
 
+        # Extract existing dhcp range settings from config templates or live settings if possible
+        dhcp_start = "10.0.0.20"
+        dhcp_end = "10.0.0.254"
+        for conf_path in ["/etc/dnsmasq.d/pisowifi.conf", os.path.join(base_dir, "config", "dnsmasq", "dnsmasq.conf")]:
+            if os.path.exists(conf_path):
+                try:
+                    with open(conf_path, "r") as f:
+                        for line in f:
+                            if line.strip().startswith("dhcp-range="):
+                                parts = line.strip().split("=")[1].split(",")
+                                if len(parts) >= 2:
+                                    dhcp_start = parts[0].strip()
+                                    dhcp_end = parts[1].strip()
+                                    break
+                except Exception:
+                    pass
+
+        # Extract WAN interface
+        wan_interface = None
+        for conf_path in ["/etc/nftables.conf", os.path.join(base_dir, "config", "nftables", "nftables.conf")]:
+            if os.path.exists(conf_path):
+                try:
+                    with open(conf_path, "r") as f:
+                        for line in f:
+                            if "oifname" in line and "masquerade" in line:
+                                parts = line.strip().split("oifname")
+                                if len(parts) >= 2:
+                                    iface = parts[1].split()[0].strip('"').strip("'")
+                                    if iface:
+                                        wan_interface = iface
+                                        break
+                except Exception:
+                    pass
+
+        if not wan_interface:
+            try:
+                with open("/proc/net/route") as f:
+                    for line in f.readlines()[1:]:
+                        parts = line.split()
+                        if len(parts) >= 4 and parts[1] == "00000000" and parts[3] == "0002":
+                            wan_interface = parts[0]
+                            break
+            except Exception:
+                pass
+
+        if not wan_interface:
+            wan_interface = "eth0"
+
+        nft_table_name = getattr(config, "NFT_TABLE_NAME", "pisowifi")
+        nft_set_name = getattr(config, "NFT_SET_NAME", "authenticated_clients")
+
         params = {
             "base_dir": base_dir,
             "gateway_ip": config.GATEWAY_IP,
             "subnet_cidr": config.SUBNET_CIDR,
             "lan_interface": config.LAN_INTERFACE_FALLBACK,
+            "wan_interface": wan_interface,
+            "dhcp_start": dhcp_start,
+            "dhcp_end": dhcp_end,
+            "nft_table_name": nft_table_name,
+            "nft_set_name": nft_set_name,
             "backend_port": config.BACKEND_PORT,
             "captive_portal_port": config.CAPTIVE_PORTAL_PORT,
             "path_nft": config.PATH_NFT,

@@ -14,7 +14,7 @@ class SchedulerService:
         self.scheduler = BackgroundScheduler()
 
     def start(self):
-        interval = config.SCHEDULER_INTERVAL
+        interval = config.SESSION_CHECK_INTERVAL
 
         self.scheduler.add_job(
             expire_sessions,

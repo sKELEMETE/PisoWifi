@@ -38,6 +38,12 @@ def get_current_client(request: Request, db: Session = Depends(get_db)):
             except Exception:
                 pass
 
+    from models.client import Client as ClientModel
+    other_clients = db.query(ClientModel).filter(ClientModel.current_ip == ip_address, ClientModel.id != client.id).all()
+    for other in other_clients:
+        other.current_ip = None
+        repo.update(other)
+
     client.current_ip = ip_address
     repo.update(client)
 
