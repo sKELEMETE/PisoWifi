@@ -7,7 +7,7 @@
 - [x] Verify Arduino Serial disconnect/reconnect behavior in `CoinService` to prevent backend crashing if the USB is unplugged.
 
 ## Medium
-- [ ] Implement database backups (SQLite backup script or replication).
+- [ ] Implement database backups (MariaDB/MySQL backup script or replication).
 - [ ] Investigate older Android Captive Portal behavior when session is paused.
 
 ## Low
@@ -17,6 +17,16 @@
 ## Future Ideas
 - [ ] Multi-AP roaming support (Using a central RADIUS or migrating from MAC tracking to Voucher/Token tracking).
 - [ ] Implement tiered bandwidth pricing (e.g. 5 Mbps vs 20 Mbps packages).
+
+## Completed (v1.0.6)
+- [x] Resolve bandwidth shaping filter bypass by introducing explicit `tc` filter handles (`800::{cid:x}`).
+- [x] Fix NameError crash in jobs.py by defining missing `logger` object.
+- [x] Correct remaining time unit conversion bug during system startup power recovery.
+- [x] Replace all client-facing instances of "Session" terminology with "Time" across the portal.
+- [x] Add dynamic branding configuration mapping for App Name, Logo, and Tagline.
+- [x] Add horizontal Internet status indication beside WiFi connection status.
+- [x] Redesign layout to use a single scrollable portal card wrapper and remove the footer.
+- [x] Display dynamic pricing table using backend rates with "Not Pausable" visual badge on ₱20 row.
 
 ## Completed (v1.0.5)
 - [x] Implement pricing table based on total accumulated peso amount.

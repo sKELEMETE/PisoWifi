@@ -106,7 +106,7 @@ export default function ActiveSessionView({
                     onClick={handlePause}
                     variant="secondary"
                 >
-                    Pause Session
+                    Pause Time
                 </Button>
             )}
 

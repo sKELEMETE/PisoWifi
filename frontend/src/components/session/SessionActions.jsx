@@ -31,7 +31,7 @@ export default function SessionActions() {
             {
                 loading
                     ? "Pausing..."
-                    : "Pause Session"
+                    : "Pause Time"
             }
         </Button>
 

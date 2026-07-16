@@ -8,7 +8,7 @@ export default function ExpiredView() {
 
             <h2>
 
-                Session Expired
+                Time Expired
 
             </h2>
 

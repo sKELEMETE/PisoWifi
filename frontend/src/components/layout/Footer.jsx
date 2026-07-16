@@ -1,3 +1,5 @@
+import branding from "../../config/branding";
+
 export default function Footer() {
     return (
         <footer
@@ -7,7 +9,7 @@ export default function Footer() {
                 borderTop: "1px solid #ddd",
             }}
         >
-            PisoWiFi © 2026
+            {branding.appName} © 2026
         </footer>
     );
 }

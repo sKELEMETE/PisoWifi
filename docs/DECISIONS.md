@@ -17,9 +17,17 @@ This document records the key technical and design decisions made for the PisoWi
     *   **Backend:** The `POST /api/v1/session/pause/{mac}` endpoint checks this flag and rejects requests with an HTTP error.
     *   **Frontend:** The Pause button is hidden dynamically when `session.pause_allowed === false`.
 
+### Decision: Backend-Driven Pricing Table
+*   **Context:** Hardcoding rate configurations on the client side introduces duplication and risks state divergence if the database rate settings are altered by the administrator.
+*   **Decision:** The backend `/pricing` endpoint serves as the single source of truth. The frontend queries this API on load to fetch available rate durations (e.g. ₱1, ₱5, ₱10, ₱15, ₱20), rendering package descriptions dynamically without client-side pricing logic or hardcoded time mappings.
+
 ---
 
 ## 2. User Experience and Audio
+
+### Decision: Replaced "Session" with "Time" Terminology
+*   **Context:** Non-technical captive portal users found the word "Session" (e.g. "Remaining Session", "Pause Session") abstract and confusing.
+*   **Decision:** Replaced all user-facing instances of "Session" with "Time" (e.g., "Remaining Time", "Pause Time", "Resume Time") across all frontend portal pages, headers, navigation tabs, and instructions.
 
 ### Decision: Centralized SoundManager
 *   **Context:** Complex sequential audio plays (e.g. playing an explosion, then starting a looping alarm, then playing a success sound) was scattered across components, resulting in overlapping audio channels and race conditions.
@@ -35,14 +43,26 @@ This document records the key technical and design decisions made for the PisoWi
 *   **Context:** After closing the coin reservation popup (clicking Done or timeout), the UI briefly loaded the Landing Page (insert state) for 1-4 seconds before background polling corrected it to Active/Paused.
 *   **Decision:** When closing the popup, the frontend immediately reads the previous session state (or updated API payload) and transitions `portalState` directly to the correct view, eliminating landing page flashes.
 
+### Decision: Centralized Dynamic Branding
+*   **Context:** Hardcoded references to the app name, tagline, and logo were duplicated across multiple layouts, headers, and footer components.
+*   **Decision:** Consolidated branding parameters in `branding.js` using `.env` variables (`VITE_APP_NAME`, `VITE_APP_LOGO`, `VITE_APP_TAGLINE`). All frontend view elements query this configuration to render identity details dynamically.
+
+### Decision: Portal Single-Scroll Card Layout
+*   **Context:** Card growth due to pricing table height pushed action buttons out of immediate view, causing header collisions on smaller devices.
+*   **Decision:** Rendered the entire captive portal card as a single scrollable container under a thin custom scrollbar. Centered layout items block-wise and removed the fixed footer to maximize vertical layout space.
+
 ---
 
 ## 3. Reliability and Systems Engineering
 
+### Decision: Explicit Traffic Control (tc) handles
+*   **Context:** Operating standard `tc filter del` commands without specific handles caused the Linux kernel classifier to flush the entire priority block, clearing bandwidth shaping filters for all other connected clients.
+*   **Decision:** Assign explicit unique hex handles (`800::{cid:x}`) derived from client class IDs. Both `tc filter add` and `tc filter del` target these handles exclusively to isolate shaping configurations.
+
 ### Decision: Core System Reliability Recovery Chain
 *   **Context:** System restarts or database latency caused complete portal failure or client lockouts (since `nftables` flushes on boot).
 *   **Decisions (R-01 to R-05):**
-    *   **R-01 (Startup Recovery):** Lifespan startup hooks run recovery to wait for MariaDB, transition crashed sessions to paused, and rebuild firewall rules.
+    *   **R-01 (Startup Recovery):** Lifespan startup hooks run recovery to wait for MariaDB, transition crashed sessions to paused (recalculating remaining duration in seconds), and rebuild firewall rules.
     *   **R-02 (Persistent Transactions):** Coin drops are logged in `/opt/pisowifi/run/` instead of volatile `/tmp/`, with automated boot-time reconciliation.
     *   **R-03 (Firewall Auditor):** A background scheduler job runs every 30s to reconcile `nftables` sets with the active sessions database.
     *   **R-04 (IP renewal):** Changing DHCP leases dynamically triggers firewall rule migrations to the client's new IP address.
@@ -51,3 +71,7 @@ This document records the key technical and design decisions made for the PisoWi
 ### Decision: Ubuntu-Based Traffic Shaping
 *   **Context:** Bandwidth limiting could be performed at the AP or portal server.
 *   **Decision:** The Ubuntu gateway remains responsible for traffic shaping via `tc` (HTB qdiscs and `ifb` devices). This ensures uniform shaping across multiple AP hardware revisions without relying on proprietary controller APIs.
+
+### Decision: Minimizing Stable Code Refactoring
+*   **Context:** Rewriting stable backend routing or database logic introduces regressions.
+*   **Decision:** Strictly prioritize backward-compatible enhancements. Implement fixes at the point of failure (e.g. recovery algorithms, filter commands) rather than rewriting central components.

@@ -24,7 +24,7 @@ export default function HomeActions() {
 
             <Link to="/paused">
                 <Button>
-                    Resume Session
+                    Resume Time
                 </Button>
             </Link>
         </div>

@@ -7,6 +7,8 @@ from models.client import Client
 from services.firewall_service import FirewallService
 import config
 
+logger = logging.getLogger(__name__)
+
 _last_system_time = None
 _last_monotonic_time = None
 

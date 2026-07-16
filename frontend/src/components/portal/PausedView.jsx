@@ -71,7 +71,7 @@ export default function PausedView() {
     return (
         <div className="portal-view">
             <h2>
-                Session Paused
+                Time Paused
             </h2>
 
             <p className="paused-label">
@@ -107,7 +107,7 @@ export default function PausedView() {
                 onClick={handleResume}
                 variant="secondary"
             >
-                Resume Session
+                Resume Time
             </Button>
 
             {showPopup && macAddress && (

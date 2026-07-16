@@ -31,7 +31,7 @@ export default function ResumeButton() {
             {
                 loading
                     ? "Resuming..."
-                    : "Resume Session"
+                    : "Resume Time"
             }
         </Button>
 

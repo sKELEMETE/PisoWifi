@@ -23,7 +23,7 @@ export default function Navbar() {
             </Link>
 
             <Link to="/session" style={{ color: "white" }}>
-                Session
+                Time
             </Link>
         </nav>
     );

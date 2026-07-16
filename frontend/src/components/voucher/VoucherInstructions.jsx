@@ -8,7 +8,7 @@ export default function VoucherInstructions() {
             </p>
 
             <p>
-                Your internet session will begin immediately after a valid voucher is redeemed.
+                Your internet time will begin immediately after a valid voucher is redeemed.
             </p>
         </>
     );

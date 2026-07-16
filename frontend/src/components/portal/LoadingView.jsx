@@ -8,7 +8,7 @@ export default function LoadingView() {
 
             <h2>
 
-                Retrieving Session
+                Retrieving Time
 
             </h2>
 

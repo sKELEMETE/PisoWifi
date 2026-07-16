@@ -3,7 +3,7 @@ import StatusCard from "../common/StatusCard";
 export default function PausedInfo() {
     return (
         <StatusCard
-            title="Paused Session"
+            title="Paused Time"
             status="Paused"
             color="#d97706"
         >

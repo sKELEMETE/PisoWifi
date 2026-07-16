@@ -6,11 +6,11 @@ export default function SessionInfo({ session }) {
 
         return (
             <StatusCard
-                title="Session"
+                title="Time"
                 status="Inactive"
                 color="#dc2626"
             >
-                <p>No active session.</p>
+                <p>No active time.</p>
             </StatusCard>
         );
 
@@ -19,7 +19,7 @@ export default function SessionInfo({ session }) {
     return (
 
         <StatusCard
-            title="Session Details"
+            title="Time Details"
             status={session.status}
             color="#16a34a"
         >

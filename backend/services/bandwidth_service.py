@@ -266,6 +266,7 @@ class BandwidthService:
         _run([
             "tc", "filter", "add", "dev", _LAN_IFACE,
             "parent", "1:", "protocol", "ip", "prio", "1",
+            "handle", f"800::{cid:x}",
             "u32", "match", "ip", "dst", f"{ip}/32",
             "flowid", f"1:{cid}",
         ], check=False)
@@ -275,7 +276,8 @@ class BandwidthService:
         _run([
             "tc", "filter", "del", "dev", _LAN_IFACE,
             "parent", "1:", "protocol", "ip", "prio", "1",
-            "u32", "match", "ip", "dst", f"{ip}/32",
+            "handle", f"800::{cid:x}",
+            "u32",
         ], check=False)
         _run([
             "tc", "class", "del", "dev", _LAN_IFACE,
@@ -298,6 +300,7 @@ class BandwidthService:
         _run([
             "tc", "filter", "add", "dev", IFB_IFACE,
             "parent", "2:", "protocol", "ip", "prio", "1",
+            "handle", f"800::{cid:x}",
             "u32", "match", "ip", "src", f"{ip}/32",
             "flowid", f"2:{cid}",
         ], check=False)
@@ -306,7 +309,8 @@ class BandwidthService:
         _run([
             "tc", "filter", "del", "dev", IFB_IFACE,
             "parent", "2:", "protocol", "ip", "prio", "1",
-            "u32", "match", "ip", "src", f"{ip}/32",
+            "handle", f"800::{cid:x}",
+            "u32",
         ], check=False)
         _run([
             "tc", "class", "del", "dev", IFB_IFACE,

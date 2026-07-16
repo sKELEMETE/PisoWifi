@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog.
 
+## [v1.0.6] - 2026-07-16
+
+### Added
+- **Centralized Branding Configuration**: Mapped dynamic VITE_APP_NAME, VITE_APP_LOGO, and VITE_APP_TAGLINE environment variables to central configuration and dynamically bound document titles and layout headers.
+- **Horizontal Internet Status Badge**: Placed dynamic "Internet: Available" and "Internet: Blocked" badges horizontally next to the WiFi status badge in the captive portal header.
+- **Dynamic Pricing Table**: Integrated rates fetching from the backend `/pricing` endpoint to display ₱1, ₱5, ₱10, ₱15, and ₱20 rows dynamically without hardcoding price configurations.
+- **Not Pausable Badge**: Attached a visual "Not Pausable" caption to the ₱20 row based on its backend-defined 24-hour (1440 minutes) package length.
+- **Single Scrollable Card Layout**: Updated `.portal` to enable scroll on the entire card wrapper under a thin custom scrollbar to maximize vertical and horizontal layout scaling.
+
+### Changed
+- **Terminology Swap**: Replaced all user-facing instances of "Session" with "Time" (e.g., Remaining Session -> Remaining Time) across all UI cards, headers, actions, and instructions.
+- **Removed Layout Footer**: Removed the fixed footer element to provide a clean page flow and prevent clutter on mobile browsers.
+
+### Fixed
+- **Bandwidth Limiting Filter Bypass**: Modified `bandwidth_service.py` to assign explicit handles (`800::{cid:x}`) to the client-specific `tc` egress/ingress filter rules. This stops system deletions from removing the packet classification filters of all other active clients.
+- **Scheduler NameError Crash**: Added missing module-level `logger` imports in `jobs.py` to allow the declarative `sync_firewall` auditor job to execute successfully.
+- **Power Recovery Time Unit**: Updated `PowerRecovery.recover()` to recalculate remaining seconds relative to `end_time` when pausing active sessions, resolving a bug where hours were converted to minutes on reboot.
+
 ## [v1.0.5] - 2026-07-16
 
 ### Added & Updated Pricing Model

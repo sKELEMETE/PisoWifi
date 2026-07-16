@@ -105,7 +105,9 @@ body{
 
     width:min(92vw,430px);
 
-    padding:32px;
+    max-height:min(92vh,660px);
+
+    padding:24px 24px 32px 24px;
 
     border-radius:32px;
 
@@ -116,6 +118,41 @@ body{
     backdrop-filter:blur(24px);
 
     box-shadow:0 30px 80px rgba(0,0,0,.45);
+
+    overflow-y:auto;
+
+    overflow-x:hidden;
+
+    scrollbar-width:thin;
+
+    scrollbar-color:rgba(255,255,255,0.08) transparent;
+
+}
+
+/* Custom Scrollbar for Portal Card */
+.portal::-webkit-scrollbar {
+
+    width:6px;
+
+}
+
+.portal::-webkit-scrollbar-track {
+
+    background:transparent;
+
+}
+
+.portal::-webkit-scrollbar-thumb {
+
+    background:rgba(255,255,255,0.08);
+
+    border-radius:10px;
+
+}
+
+.portal::-webkit-scrollbar-thumb:hover {
+
+    background:rgba(255,255,255,0.15);
 
 }
 
@@ -200,6 +237,29 @@ body{
     background:#ef4444;
 
 }
+
+.status-container {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 24px;
+    margin-top: 5px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
 
 .divider{
 
@@ -586,4 +646,92 @@ transform:scale(1);
     background: rgba(255, 255, 255, 0.15) !important;
     box-shadow: 0 10px 20px rgba(255, 255, 255, 0.05) !important;
 }
+
+/* Pricing Table Styles */
+.pricing-table-container {
+    width: 100%;
+    max-width: 380px;
+    margin: 60px auto 0 auto;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.pricing-table-header {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 20px;
+    text-align: left;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+}
+
+.pricing-table-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 1.1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.pricing-table-row:last-child {
+    border-bottom: none;
+}
+
+.pricing-table-row:hover {
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.pricing-price {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 1.25rem;
+}
+
+.pricing-duration {
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pricing-table-row.highlighted {
+    background: rgba(239, 68, 68, 0.04);
+    border: 1.5px solid rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+    margin: -1.5px -0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+.pricing-table-row.highlighted .pricing-price {
+    color: #ff5f5f;
+}
+
+.sale-badge {
+    background: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.not-pausable-caption {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: normal;
+}
+
 
