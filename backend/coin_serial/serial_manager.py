@@ -1,11 +1,8 @@
 import time
-
 import serial
-
 import config
-
 from coin_serial.device_detector import detect_serial_device
-from coin_serial.serial_reader import SerialReader
+from coin_serial.serial_reader import SerialReader, MockSerialReader
 
 
 class SerialManager:
@@ -20,6 +17,13 @@ class SerialManager:
         self.connected = value
 
     def connect(self):
+        driver_name = config.SERIAL_DRIVER.lower()
+        if driver_name != "pyserial":
+            self.reader = MockSerialReader()
+            self.set_connected(True)
+            print("[Serial] Mock connected.")
+            return
+
         while self.reader is None:
             try:
                 device = detect_serial_device()

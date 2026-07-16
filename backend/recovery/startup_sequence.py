@@ -1,4 +1,5 @@
 import logging
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +22,8 @@ class StartupSequence:
         self.firewall_recovery = firewall_recovery
 
     def _reconcile_pending_coins(self):
-        import glob
-        import os
-        import json
         from database import SessionLocal
+        from models.coin_reservation import CoinReservation, PendingCoin
         from repositories.rate_repository import RateRepository
         from repositories.client_repository import ClientRepository
         from repositories.sales_repository import SalesRepository
@@ -32,14 +31,14 @@ class StartupSequence:
         from services.session_service import SessionService
         from services.coin_service import CoinService
 
-        pattern = "/opt/pisowifi/run/session_coins_*.json"
-        files = glob.glob(pattern)
-        if not files:
-            return
-
-        logger.info("Found %d pending coin session file(s). Reconciling...", len(files))
         db = SessionLocal()
         try:
+            pending_macs = [r[0] for r in db.query(PendingCoin.mac).distinct().all()]
+            if not pending_macs:
+                return
+
+            logger.info("Found %d MAC(s) with pending coins on startup. Reconciling...", len(pending_macs))
+            
             rate_repository = RateRepository(db)
             client_repository = ClientRepository(db)
             sales_repository = SalesRepository(db)
@@ -52,22 +51,21 @@ class StartupSequence:
                 sale_repository=sales_repository,
             )
 
-            for path in files:
-                filename = os.path.basename(path)
-                mac = filename[14:-5]
-                try:
-                    with open(path, "r") as f:
-                        coins = json.load(f)
-                    if coins:
-                        logger.info("Reconciling %d coin(s) for MAC: %s", len(coins), mac)
-                        coin_service.process_coins_bulk(mac, coins, authorize=True)
-                except Exception as exc:
-                    logger.error("Failed to reconcile file %s: %s", filename, exc)
-                finally:
+            for mac in pending_macs:
+                records = db.query(PendingCoin).filter(PendingCoin.mac == mac).all()
+                coins = [r.amount for r in records]
+                if coins:
+                    logger.info("Startup Recovery: Reconciling %d coin(s) for client %s.", len(coins), mac)
                     try:
-                        os.remove(path)
-                    except FileNotFoundError:
-                        pass
+                        coin_service.process_coins_bulk(mac, coins, authorize=True)
+                        db.query(PendingCoin).filter(PendingCoin.mac == mac).delete()
+                        db.query(CoinReservation).filter(CoinReservation.mac == mac).delete()
+                        db.commit()
+                    except Exception as exc:
+                        db.rollback()
+                        logger.error("Startup Recovery: Failed to reconcile coins for %s: %s", mac, exc)
+        except Exception as exc:
+            logger.error("Startup Recovery: DB error during coin reconciliation: %s", exc)
         finally:
             db.close()
 

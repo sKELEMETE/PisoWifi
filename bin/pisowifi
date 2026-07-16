@@ -1,0 +1,6 @@
+#!/bin/bash
+# Find base directory of PisoWiFi installation
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Run CLI using the python virtual environment interpreter
+exec "$BASE_DIR/backend/venv/bin/python" "$BASE_DIR/installer/cli.py" "$@"

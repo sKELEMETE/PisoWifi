@@ -1,0 +1,14 @@
+[Unit]
+Description=PisoWiFi Backend API
+After=network.target
+
+[Service]
+LimitNOFILE=65535
+User=root
+WorkingDirectory={base_dir}/backend
+Environment="PATH={base_dir}/backend/venv/bin"
+ExecStart={base_dir}/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port {backend_port}
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 import serial
-
 import config
+import time
 
 class SerialReader:
     def __init__(self):
@@ -20,3 +20,13 @@ class SerialReader:
             return None
 
         return line.decode(errors="ignore").strip()
+
+
+class MockSerialReader:
+    def __init__(self):
+        self.is_open = True
+
+    def read_line(self) -> str | None:
+        # Prevent 100% CPU lockup by sleeping, mimicking serial timeout
+        time.sleep(config.SERIAL_TIMEOUT)
+        return None

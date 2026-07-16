@@ -10,15 +10,19 @@ from config import (
     DATABASE_PASSWORD,
 )
 
-DATABASE_URL = (
-    f"mysql+pymysql://{DATABASE_USER}:{DATABASE_PASSWORD}"
-    f"@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
-)
+import config
+
+DATABASE_URL = config.DATABASE_URL
+
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
 
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_recycle=3600 if not DATABASE_URL.startswith("sqlite") else -1,
+    connect_args=connect_args,
 )
 
 SessionLocal = sessionmaker(

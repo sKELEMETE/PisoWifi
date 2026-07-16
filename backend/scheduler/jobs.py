@@ -12,6 +12,44 @@ logger = logging.getLogger(__name__)
 _last_system_time = None
 _last_monotonic_time = None
 
+def check_expired_reservations(db):
+    """
+    Find expired coin reservations and finalize/release them.
+    """
+    from models.coin_reservation import CoinReservation, PendingCoin
+    from repositories.rate_repository import RateRepository
+    from repositories.client_repository import ClientRepository
+    from repositories.sales_repository import SalesRepository
+    from repositories.session_repository import SessionRepository
+    from services.session_service import SessionService
+    from services.coin_service import CoinService
+
+    now = datetime.utcnow()
+    expired = db.query(CoinReservation).filter(CoinReservation.expires_at <= now).all()
+    for res in expired:
+        mac = res.mac
+        logger.info("Scheduler: reservation timed out for %s. Finalizing...", mac)
+        try:
+            pending_records = db.query(PendingCoin).filter(PendingCoin.mac == mac).all()
+            coins = [r.amount for r in pending_records]
+            if coins:
+                coin_service = CoinService(
+                    rate_repository=RateRepository(db),
+                    client_repository=ClientRepository(db),
+                    session_service=SessionService(SessionRepository(db)),
+                    sale_repository=SalesRepository(db),
+                )
+                coin_service.process_coins_bulk(mac, coins, authorize=True)
+
+            db.query(CoinReservation).filter(CoinReservation.mac == mac).delete()
+            db.query(PendingCoin).filter(PendingCoin.mac == mac).delete()
+            db.commit()
+            logger.info("Scheduler: slot successfully released for %s.", mac)
+        except Exception as exc:
+            db.rollback()
+            logger.error("Scheduler: failed to finalize expired reservation for %s: %s", mac, exc)
+
+
 def expire_sessions():
     global _last_system_time, _last_monotonic_time
     import time
@@ -79,6 +117,12 @@ def expire_sessions():
                 firewall.remove(client_ip)
 
         db.commit()
+
+        # Check and finalize expired coin acceptor reservations
+        try:
+            check_expired_reservations(db)
+        except Exception as exc:
+            logger.error("Failed checking expired reservations: %s", exc)
     except Exception as e:
         logger.error("Session expiration lookup failed: %s", e)
     finally:
@@ -105,8 +149,8 @@ def sync_firewall():
 
         # 2. Get actual IPs from nftables sets
         nft_ips = set()
-        for family, table, set_name in [("inet", "pisowifi", "authenticated_clients"), ("ip", "nat", "authenticated_clients")]:
-            cmd = ["/usr/sbin/nft", "-j", "list", "set", family, table, set_name]
+        for family, table, set_name in [("inet", config.NFT_TABLE_NAME, config.NFT_SET_NAME), ("ip", "nat", config.NFT_SET_NAME)]:
+            cmd = [config.PATH_NFT, "-j", "list", "set", family, table, set_name]
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode == 0:
                 try:

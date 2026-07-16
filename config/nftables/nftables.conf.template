@@ -1,0 +1,40 @@
+table inet {nft_table_name} {
+    set {nft_set_name} {
+        type ipv4_addr
+        flags timeout
+    }
+
+    chain input {
+        type filter hook input priority filter; policy accept;
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ip saddr @{nft_set_name} accept
+        ip daddr @{nft_set_name} accept
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}
+
+table ip nat {
+    set {nft_set_name} {
+        type ipv4_addr
+        flags timeout
+    }
+
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        ip saddr @{nft_set_name} return
+        iifname "{lan_interface}" udp dport 53 redirect to :53
+        iifname "{lan_interface}" tcp dport 53 redirect to :53
+        iifname "{lan_interface}" tcp dport 80 redirect to :80
+    }
+
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        oifname "{wan_interface}" masquerade
+    }
+}

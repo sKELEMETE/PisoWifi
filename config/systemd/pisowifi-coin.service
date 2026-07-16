@@ -1,0 +1,13 @@
+[Unit]
+Description=PisoWiFi Coin Listener
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/pisowifi/backend
+Environment="PATH=/opt/pisowifi/backend/venv/bin"
+ExecStart=/opt/pisowifi/backend/venv/bin/python run_coin_listener.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

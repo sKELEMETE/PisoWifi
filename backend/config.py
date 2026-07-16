@@ -11,9 +11,19 @@ DATABASE_NAME = os.getenv("DATABASE_NAME", "pisowifi")
 DATABASE_USER = os.getenv("DATABASE_USER", "pisowifi")
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "password")
 
+DATABASE_TYPE = os.getenv("PISOWIFI_DATABASE_TYPE", "mysql")
+if DATABASE_TYPE.lower() == "sqlite":
+    DATABASE_URL = os.getenv("PISOWIFI_DATABASE_URL", f"sqlite:///{os.path.join(os.path.dirname(__file__), '..', 'pisowifi.db')}")
+else:
+    DATABASE_URL = os.getenv("PISOWIFI_DATABASE_URL", f"mysql+pymysql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}")
+
+BASE_DIR = os.getenv("PISOWIFI_BASE_DIR", "/opt/pisowifi")
+RUN_DIR = os.getenv("PISOWIFI_RUN_DIR", os.path.join(BASE_DIR, "run"))
+SFX_DIRECTORY = os.getenv("SFX_DIRECTORY", os.path.join(BASE_DIR, "sfx"))
+
 SESSION_CHECK_INTERVAL = int(os.getenv("SESSION_CHECK_INTERVAL", "60"))
-BACKUP_DIRECTORY = os.getenv("BACKUP_DIRECTORY", "/tmp")
-LOG_DIRECTORY = os.getenv("LOG_DIRECTORY", "/tmp")
+BACKUP_DIRECTORY = os.getenv("BACKUP_DIRECTORY", os.path.join(BASE_DIR, "backups"))
+LOG_DIRECTORY = os.getenv("LOG_DIRECTORY", os.path.join(BASE_DIR, "logs"))
 NFT_TABLE_NAME = os.getenv("NFT_TABLE_NAME", "pisowifi")
 NFT_SET_NAME = os.getenv("NFT_SET_NAME", "authenticated_clients")
 CAPTIVE_PORTAL_PORT = int(os.getenv("CAPTIVE_PORTAL_PORT", "80"))
@@ -26,6 +36,34 @@ SERIAL_RECONNECT_INTERVAL = int(os.getenv("SERIAL_RECONNECT_INTERVAL", "5"))
 SERIAL_DEBOUNCE_MS = int(os.getenv("SERIAL_DEBOUNCE_MS", "300"))
 SCHEDULER_INTERVAL = int(os.getenv("SCHEDULER_INTERVAL", "1"))
 BACKUP_TIME = os.getenv("BACKUP_TIME", "03:00")
+
+GATEWAY_IP = os.getenv("PISOWIFI_GATEWAY_IP", "10.0.0.1")
+SUBNET_CIDR = os.getenv("PISOWIFI_SUBNET_CIDR", "10.0.0.0/24")
+LAN_INTERFACE_FALLBACK = os.getenv("PISOWIFI_LAN_INTERFACE_FALLBACK", "enxc817f552a5c6")
+
+import shutil
+
+def find_binary(name: str, fallback_path: str) -> str:
+    path = shutil.which(name)
+    if path:
+        return path
+    return fallback_path
+
+PATH_NFT = os.getenv("PATH_NFT", find_binary("nft", "/usr/sbin/nft"))
+PATH_TC = os.getenv("PATH_TC", find_binary("tc", "/usr/sbin/tc"))
+PATH_IP = os.getenv("PATH_IP", find_binary("ip", "/usr/sbin/ip"))
+PATH_MODPROBE = os.getenv("PATH_MODPROBE", find_binary("modprobe", "/usr/sbin/modprobe"))
+
+BANDWIDTH_RATE = os.getenv("PISOWIFI_BANDWIDTH_RATE", "10mbit")
+BANDWIDTH_CEIL = os.getenv("PISOWIFI_BANDWIDTH_CEIL", "10mbit")
+
+FIREWALL_DRIVER = os.getenv("PISOWIFI_FIREWALL_DRIVER", "nftables")
+BANDWIDTH_DRIVER = os.getenv("PISOWIFI_BANDWIDTH_DRIVER", "linux_tc")
+NETWORK_PROVIDER = os.getenv("PISOWIFI_NETWORK_PROVIDER", "local_arp")
+SERIAL_DRIVER = os.getenv("PISOWIFI_SERIAL_DRIVER", "pyserial")
+BACKEND_PORT = int(os.getenv("PISOWIFI_BACKEND_PORT", "8000"))
+
+COIN_RESERVATION_TIMEOUT = int(os.getenv("COIN_RESERVATION_TIMEOUT", "30"))
 
 # Centralized pricing table: amount -> (minutes, pause_allowed)
 PRICING_TABLE = {

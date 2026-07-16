@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from services.firewall_service import FirewallService
+import config
 from api.v1.client import router as client_router
 from api.v1.api import api_router
 from core.exceptions import register_exception_handlers
@@ -24,6 +25,29 @@ async def lifespan(app: FastAPI):
         BandwidthService().setup()
     except Exception as exc:
         logger.warning("Bandwidth setup failed: %s", exc)
+
+    # Ensure all database migrations are applied (idempotent)
+    try:
+        from alembic.config import Config
+        from alembic import command
+        import os
+        import sys
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, os.path.dirname(backend_dir))
+        try:
+            from installer.log_manager import get_logger
+            mig_logger = get_logger("migration", "migration.log")
+            mig_logger.info("Initializing database migrations...")
+        except Exception:
+            mig_logger = logger
+
+        alembic_ini_path = os.path.join(backend_dir, "alembic.ini")
+        alembic_cfg = Config(alembic_ini_path)
+        command.upgrade(alembic_cfg, "head")
+        mig_logger.info("Database migrations applied successfully.")
+        logger.info("Database migrations applied successfully.")
+    except Exception as exc:
+        logger.error("Failed to run database migrations: %s", exc)
 
     # Run startup recovery sequence
     from database import SessionLocal
@@ -75,7 +99,7 @@ app.include_router(session_router)
 app.include_router(voucher_router)
 app.include_router(coin_router)
 app.include_router(client_router)
-app.mount("/api/sfx", StaticFiles(directory="/opt/pisowifi/sfx"), name="sfx")
+app.mount("/api/sfx", StaticFiles(directory=config.SFX_DIRECTORY), name="sfx")
 register_exception_handlers(app)
 
 @app.get("/")
