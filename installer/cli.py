@@ -21,6 +21,9 @@ def main():
     # Version subcommand
     subparsers.add_parser("version", help="Show PisoWiFi active release version")
 
+    # Upgrade subcommand
+    subparsers.add_parser("upgrade", help="Perform automated PisoWiFi upgrade workflow")
+
     args = parser.parse_args()
 
     if args.command == "version":
@@ -28,6 +31,10 @@ def main():
     elif args.command == "doctor":
         doctor = DoctorCheck()
         success = doctor.run_all()
+        sys.exit(0 if success else 1)
+    elif args.command == "upgrade":
+        from installer.upgrade import run_upgrade
+        success = run_upgrade(BASE_DIR)
         sys.exit(0 if success else 1)
 
 

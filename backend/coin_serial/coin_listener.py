@@ -14,7 +14,7 @@ class CoinListener:
 
     def __init__(self):
         self.manager = SerialManager()
-        self.debouncer = Debouncer(delay_ms=config.SERIAL_DEBOUNCE_MS)
+        self.debouncer = Debouncer()
 
     def process_coin_via_api(self, value: int) -> bool:
         """
@@ -39,6 +39,7 @@ class CoinListener:
         return False
 
     def run(self):
+        logger.info("Initializing serial manager connection...")
         self.manager.connect()
 
         logger.info("Listening for coin acceptor pulses...")
@@ -47,13 +48,20 @@ class CoinListener:
             if packet is None:
                 continue
 
+            logger.info("Raw packet received: %r", packet)
+
             value = validate_packet(packet)
             if value is None:
+                logger.warning("Packet validation failed for input: %r", packet)
                 continue
+
+            logger.info("Packet validated successfully. Extracted value: %d PHP", value)
 
             # Debounce
-            if not self.debouncer.debounce(value):
+            if not self.debouncer.allow(value):
+                logger.warning("Packet debounced (ignored): %d PHP", value)
                 continue
 
-            logger.info("Coin pulse received: %d PHP", value)
-            self.process_coin_via_api(value)
+            logger.info("Coin pulse allowed. Dispatched value: %d PHP", value)
+            success = self.process_coin_via_api(value)
+            logger.info("REST API post status: %s", "Success" if success else "Failed")

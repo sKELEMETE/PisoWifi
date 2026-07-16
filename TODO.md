@@ -36,7 +36,7 @@ This file tracks the upcoming phases and tasks required to transition PisoWiFi i
 - [x] **Phase 3: Centralized Logging and Command-Line Interface (Doctor)**
   - Integrate rotating logging handlers for installation, updates, migrations, and doctor operations.
   - Develop `pisowifi doctor` command-line utility to diagnose, troubleshoot, and output system status checkmarks.
-- [ ] **Phase 4: Automated Upgrades and Configuration Migrations**
+- [x] **Phase 4: Automated Upgrades and Configuration Migrations**
   - Develop a transactional `pisowifi upgrade` command.
   - Add automated `.env` settings migration matching old/new variables.
   - Implement template version verification using MD5 hashes to protect local configuration customizations.

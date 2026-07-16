@@ -147,6 +147,53 @@ We implemented CLI tooling and central logging:
 - The system is commercially supportable; admins can troubleshoot deployments by running `pisowifi doctor`.
 - Historical logs are recorded safely in `/opt/pisowifi/logs/`.
 
+## [2026-07-16] Coin Listener Debouncer Parameter Fix (Bug Fix)
+
+### Context
+A production regression occurred after implementing Phase 6 file lock migrations, causing the `pisowifi-coin` listener service to crash on startup due to passing the unexpected `delay_ms` argument to the parameterless `Debouncer` constructor and calling the non-existent `.debounce()` method.
+
+### Decision
+We implemented a production-safe hotfix in [coin_listener.py](file:///opt/pisowifi/backend/coin_serial/coin_listener.py):
+- Replaced `Debouncer(delay_ms=...)` with the correct parameterless instantiation `Debouncer()`.
+- Replaced `.debounce(value)` with `.allow(value)` to match the existing method signature in [debounce.py](file:///opt/pisowifi/backend/coin_serial/debounce.py).
+
+### Consequences
+- The `pisowifi-coin` daemon starts, registers serial comports, and executes its pulse-reading loop successfully without crashes.
+- Debouncing checks operate correctly.
+
+## [2026-07-16] Scored Serial AUTO Detection & Logging Visibility (Bug Fix)
+
+### Context
+When the USB serial hardware disconnected and reconnected, the Linux kernel re-mapped the node to `/dev/ttyUSB1` (since `/dev/ttyUSB0` was locked by the dead service). The application remained locked to the hardcoded `SERIAL_PORT=/dev/ttyUSB0` in the environment files. Additionally, any warnings or event logs were completely silent because the root logger was never configured and default Python stdout was buffered.
+
+### Decision
+We updated the serial detection and logging configuration:
+- **Scored Auto Detection & Active Probing**: Overhauled `device_detector.py` to scan comports, score them based on matching USB VIDs/PIDs (FTDI, CH340, CP210x, Prolific, Arduino), probe candidate ports for active PisoWiFi signatures (`PISOWIFI`, `PULSES`), and return the resolved device.
+- **Root Logging & Pipeline Visibility**: Configured `logging.basicConfig(level=logging.INFO)` in `run_coin_listener.py` and directed prints to `sys.stderr` to prevent block buffering in systemd. Added raw packet, validation, debouncing, and API dispatch logging events in `coin_listener.py`.
+- **Environment defaults**: Configured `SERIAL_PORT=AUTO` in `/opt/pisowifi/.env`.
+
+### Consequences
+- The coin listener service automatically resolves and connects to the correct Arduino on start and reconnection, regardless of which USB port it is plugged into (e.g. `/dev/ttyUSB1` or `/dev/ttyUSB0`).
+- Systemd journal captures all connection, validation, and API dispatch logs with zero delay.
+
+## [2026-07-16] Automated Upgrades, Environment Migration & MD5 Hash Verification (Phase 4)
+
+### Context
+To safely upgrade production installations with minimal administrative efforts, the upgrade process must perform backups, migrate environment variables without destroying customizations, verify if configuration templates in `/etc/` have been manually edited, and roll back cleanly on diagnostic failures.
+
+### Decision
+We developed the automated upgrade suite:
+- **`upgrade.py` CLI subcommand**: Implemented `pisowifi upgrade` executing pre-upgrade backups, programmatic Alembic migrations, systemd service reloads, and post-upgrade diagnostic tests.
+- **MD5 template validation**: Implemented dynamic configuration hashing using MD5. Before installing generated system configs, we verify the existing active files. If customized, we save a backup copy (e.g. `.custom`) to prevent silenty overwriting edits.
+- **Environment Migration**: Created `migrate_env` reading and preserving custom configurations while appending new settings defaults.
+
+### Consequences
+- Upgrades are transactional; failures during database migration or doctor checks revert configurations to their previous version safely.
+- Administrators' custom modifications to Nginx, Dnsmasq, or systemd files are protected.
+
+
+
+
 
 
 

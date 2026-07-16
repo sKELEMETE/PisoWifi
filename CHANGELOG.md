@@ -70,6 +70,40 @@ All notable changes to the PisoWiFi project will be documented in this file.
 ### Changed
 - Registered `diagnostics_router` inside [api/v1/api.py](file:///opt/pisowifi/backend/api/v1/api.py).
 
+## [1.10.0] - 2026-07-16
+
+### Added
+- Phase 4 of Production Deployment Roadmap: Automated Upgrades, Configuration Migrations, and Template Versioning.
+- Implemented a transactional upgrade workflow module (`installer/upgrade.py`) executed via `pisowifi upgrade` that performs:
+  - Automated configuration backup validations before starting.
+  - Interactive/headless `.env` settings migration matching old and new variables.
+  - MD5 hash checking on active files (`/etc/`) to verify and protect custom administrator edits from silent overwrites.
+  - Programmatic database migrations using Alembic and post-upgrade diagnostic validation audits.
+  - Safe system rollbacks upon failure.
+- Developed `tests/test_upgrade.py` verifying environmental migrations and file MD5 customization checks.
+
+### Changed
+- Integrated the `upgrade` subcommand into [cli.py](file:///opt/pisowifi/installer/cli.py) CLI parser.
+
+## [1.9.2] - 2026-07-16
+
+### Added
+- Implemented robust scored-candidate serial port detection and active handshake probing in [device_detector.py](file:///opt/pisowifi/backend/coin_serial/device_detector.py):
+  - Scans and ranks comports using target VID/PID signatures (e.g. FTDI `0403:6001`, CH340, CP210x, Arduino).
+  - Probes candidate ports for active PisoWiFi coin selector handshake signatures (`PISOWIFI`, `PULSES`, `COIN`) before fallback.
+  - Recovers and connects dynamically to re-mapped interfaces (e.g. `/dev/ttyUSB1` after USB unplug/replug relocation).
+- Added root logging configuration in [run_coin_listener.py](file:///opt/pisowifi/backend/run_coin_listener.py) and added pipeline validation/dispatch events logging in [coin_listener.py](file:///opt/pisowifi/backend/coin_serial/coin_listener.py) to eliminate silent failures.
+
+### Changed
+- Configured `/opt/pisowifi/.env` to default to `SERIAL_PORT=AUTO` to enable dynamic serial detection out of the box.
+
+## [1.9.1] - 2026-07-16
+
+### Fixed
+- Fixed critical production regression in [coin_listener.py](file:///opt/pisowifi/backend/coin_serial/coin_listener.py):
+  - Corrected `Debouncer` class instantiation to use the parameterless constructor (`Debouncer()`) instead of passing the unexpected `delay_ms` argument.
+  - Replaced the call to the non-existent `.debounce()` method with `.allow()`, matching the correct method implementation in [debounce.py](file:///opt/pisowifi/backend/coin_serial/debounce.py).
+
 ## [1.9.0] - 2026-07-16
 
 ### Added

@@ -34,56 +34,99 @@ def render_templates(config_dir: str, params: dict) -> dict[str, str]:
     return output_paths
 
 
+import hashlib
+import json
+
+HASH_FILE = "/opt/pisowifi/config/.hashes.json"
+
+
+def calculate_hash(filepath: str) -> str:
+    if not os.path.exists(filepath):
+        return ""
+    hasher = hashlib.md5()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(8192):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def load_hashes() -> dict:
+    if os.path.exists(HASH_FILE):
+        try:
+            with open(HASH_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def save_hashes(hashes: dict) -> None:
+    os.makedirs(os.path.dirname(HASH_FILE), exist_ok=True)
+    try:
+        with open(HASH_FILE, "w") as f:
+            json.dump(hashes, f, indent=4)
+    except Exception:
+        pass
+
+
 def install_system_files(output_paths: dict[str, str], rollback_mgr=None) -> None:
-    # Systemd
-    for service in ["pisowifi-backend.service", "pisowifi-coin.service"]:
-        src = output_paths.get(f"systemd/{service}")
-        if src:
-            dst = f"/etc/systemd/system/{service}"
-            if rollback_mgr:
-                rollback_mgr.copy_file(src, dst)
-            else:
-                shutil.copy(src, dst)
-            print(f" -> Installed systemd service to: {dst}")
+    stored_hashes = load_hashes()
+    new_hashes = {}
 
-    # Nginx
-    src_nginx = output_paths.get("nginx/pisowifi.conf")
-    if src_nginx:
-        dst_nginx_avail = "/etc/nginx/sites-available/pisowifi"
-        dst_nginx_enable = "/etc/nginx/sites-enabled/pisowifi"
-        if rollback_mgr:
-            rollback_mgr.copy_file(src_nginx, dst_nginx_avail)
-        else:
-            shutil.copy(src_nginx, dst_nginx_avail)
-        print(f" -> Installed Nginx configuration to: {dst_nginx_avail}")
-        if not os.path.exists(dst_nginx_enable):
-            try:
-                if rollback_mgr:
-                    rollback_mgr.create_symlink(dst_nginx_avail, dst_nginx_enable)
-                else:
-                    os.symlink(dst_nginx_avail, dst_nginx_enable)
-                print(f" -> Enabled site link: {dst_nginx_enable}")
-            except Exception as exc:
-                print(f" -> Link failed: {exc}")
+    install_targets = {
+        "systemd/pisowifi-backend.service": "/etc/systemd/system/pisowifi-backend.service",
+        "systemd/pisowifi-coin.service": "/etc/systemd/system/pisowifi-coin.service",
+        "nginx/pisowifi.conf": "/etc/nginx/sites-available/pisowifi",
+        "dnsmasq/dnsmasq.conf": "/etc/dnsmasq.d/pisowifi.conf",
+        "nftables/nftables.conf": "/etc/nftables.conf",
+    }
 
-    # Dnsmasq
-    src_dnsmasq = output_paths.get("dnsmasq/dnsmasq.conf")
-    if src_dnsmasq:
-        dst_dnsmasq = "/etc/dnsmasq.d/pisowifi.conf"
-        if rollback_mgr:
-            rollback_mgr.copy_file(src_dnsmasq, dst_dnsmasq)
-        else:
-            shutil.copy(src_dnsmasq, dst_dnsmasq)
-        print(f" -> Installed Dnsmasq configuration to: {dst_dnsmasq}")
+    for key, dst in install_targets.items():
+        src = output_paths.get(key)
+        if not src:
+            continue
 
-    # Nftables
-    src_nft = output_paths.get("nftables/nftables.conf")
-    if src_nft:
-        dst_nft = "/etc/nftables.conf"
-        if os.path.exists(dst_nft) and not os.path.exists(dst_nft + ".orig"):
-            shutil.copy(dst_nft, dst_nft + ".orig")
+        # Detect custom modification
+        if os.path.exists(dst):
+            current_hash = calculate_hash(dst)
+            previous_hash = stored_hashes.get(dst)
+            if previous_hash and current_hash != previous_hash:
+                backup_dst = dst + ".custom"
+                print(f"[WARNING] Custom edits detected on {dst}! Saving backup to {backup_dst}")
+                try:
+                    shutil.copy(dst, backup_dst)
+                except Exception as exc:
+                    print(f" -> Backup failed: {exc}")
+
+        # Perform install
+        if dst == "/etc/nftables.conf":
+            if os.path.exists(dst) and not os.path.exists(dst + ".orig"):
+                try:
+                    shutil.copy(dst, dst + ".orig")
+                except Exception:
+                    pass
+
         if rollback_mgr:
-            rollback_mgr.copy_file(src_nft, dst_nft)
+            rollback_mgr.copy_file(src, dst)
         else:
-            shutil.copy(src_nft, dst_nft)
-        print(f" -> Installed Nftables configuration to: {dst_nft}")
+            shutil.copy(src, dst)
+
+        print(f" -> Installed: {dst}")
+
+        # Link Nginx site
+        if key == "nginx/pisowifi.conf":
+            dst_nginx_enable = "/etc/nginx/sites-enabled/pisowifi"
+            if not os.path.exists(dst_nginx_enable):
+                try:
+                    if rollback_mgr:
+                        rollback_mgr.create_symlink(dst, dst_nginx_enable)
+                    else:
+                        os.symlink(dst, dst_nginx_enable)
+                    print(f" -> Enabled site link: {dst_nginx_enable}")
+                except Exception as exc:
+                    print(f" -> Link failed: {exc}")
+
+        # Record new hash
+        new_hashes[dst] = calculate_hash(dst)
+
+    save_hashes(new_hashes)

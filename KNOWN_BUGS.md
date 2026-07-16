@@ -7,8 +7,7 @@ This document tracks known bugs, limitations, and workarounds within the PisoWiF
   - *Mitigation*: Run PisoWiFi only on `/24` subnets until Phase 3/6 dynamic mappings are introduced.
 
 ## Hardware & Connection Limitations
-- **USB-only Arduino Serial Detection Heuristic**: The Arduino detection search in [device_detector.py](file:///opt/pisowifi/backend/coin_serial/device_detector.py) only looks for serial devices containing `"USB"` in their description. This misses direct UART configurations via hardware GPIO pins (`/dev/ttyS0` or `/dev/ttyAMA0`) common on Raspberry Pi and Orange Pi boards.
-  - *Mitigation*: Manually set `SERIAL_PORT` in the environment if connecting via direct GPIO pins.
+- **USB-only Arduino Serial Detection Heuristic (RESOLVED)**: Overhauled `device_detector.py` to search for USB, ACM, and common hardware SBC UART ports (/dev/ttyS0, /dev/ttyAMA0, etc.) dynamically.
 
 ## Unix-Only Library Dependency
 - **Fcntl reliance (RESOLVED)**: Wrapped all imports and file-lock operations for `fcntl` in check blocks, making the codebase 100% executable on Windows/macOS.
