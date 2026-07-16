@@ -9,7 +9,7 @@ class SessionService:
         self.client_repository = ClientRepository(self.session_repository.db)
         self.firewall = FirewallService()
 
-    def create_or_extend_session(self, client_id: int, rate_id: int, minutes: int, authorize: bool = True):
+    def create_or_extend_session(self, client_id: int, rate_id: int, minutes: int, authorize: bool = True, pause_allowed: bool = True):
         session = self.session_repository.get_active_session_by_client_id(client_id)
         client = self.client_repository.get_by_id(client_id)
         now = datetime.now()
@@ -19,6 +19,7 @@ class SessionService:
             session.end_time = session.end_time + timedelta(minutes=minutes)
             session.purchased_minutes += minutes
             session.remaining_minutes = int((session.end_time - now).total_seconds() / 60)
+            session.pause_allowed = session.pause_allowed and pause_allowed
             self.session_repository.db.commit()
             self.session_repository.db.refresh(session)
         else:
@@ -26,6 +27,7 @@ class SessionService:
                 client_id=client_id,
                 rate_id=rate_id,
                 minutes=minutes,
+                pause_allowed=pause_allowed,
             )
 
         if client:

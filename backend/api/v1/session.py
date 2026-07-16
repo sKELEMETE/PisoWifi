@@ -58,6 +58,7 @@ def get_session(mac: str, db: Session = Depends(get_db)):
         "expires_at": session.end_time.isoformat() if session.end_time else None,
         "mac_address": client.mac_address,
         "ip_address": client.current_ip,
+        "pause_allowed": getattr(session, "pause_allowed", True),
     })
 
 @router.post("/pause/{mac}")
@@ -74,6 +75,9 @@ def pause_session(mac: str, db: Session = Depends(get_db)):
     session = session_repo.get_active_session_by_client_id(client.id)
     if not session:
         return error("No active session")
+
+    if not getattr(session, "pause_allowed", True):
+        return error("Pause not allowed for this session package")
 
     now = datetime.now()
     session.status = "PAUSED"

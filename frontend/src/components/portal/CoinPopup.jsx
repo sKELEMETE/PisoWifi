@@ -27,11 +27,28 @@ export default function CoinPopup({ macAddress, onClose }) {
                 // Fetch the new session immediately to update UI without 5s lag
                 const sessRes = await getSession(macAddress);
                 if (sessRes && sessRes.success) {
-                    useSessionStore.getState().setSession(sessRes.data);
-                    usePortalStore.getState().setPortalState("active");
+                    const sessionData = sessRes.data;
+                    useSessionStore.getState().setSession(sessionData);
+                    if (sessionData.status === "PAUSED") {
+                        usePortalStore.getState().setPortalState("paused");
+                    } else if (sessionData.remaining_seconds <= 0) {
+                        usePortalStore.getState().setPortalState("expired");
+                    } else {
+                        usePortalStore.getState().setPortalState("active");
+                    }
                 }
             } else {
-                usePortalStore.getState().setPortalState("insert");
+                // If no coins were inserted, return to the correct previous view state
+                const prevSession = useSessionStore.getState().session;
+                if (prevSession && prevSession.remaining_seconds > 0) {
+                    if (prevSession.status === "PAUSED") {
+                        usePortalStore.getState().setPortalState("paused");
+                    } else {
+                        usePortalStore.getState().setPortalState("active");
+                    }
+                } else {
+                    usePortalStore.getState().setPortalState("insert");
+                }
             }
         } catch (err) {
             console.error("Failed to release reservation:", err);

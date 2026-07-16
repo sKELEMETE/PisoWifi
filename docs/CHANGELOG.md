@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog.
 
+## [v1.0.5] - 2026-07-16
+
+### Added & Updated Pricing Model
+- **Centralized Pricing Table Configuration** (`config.py`): Defined centralized `PRICING_TABLE` dictionary and lookup function to translate total inserted coin values to package minutes and pause eligibility.
+- **Bulk Coin Processing** (`coin_service.py`): Added `process_coins_bulk` method to process coin drops in bulk, maintaining ledger accuracy (individual coins recorded with `minutes=0`) while crediting package minutes from the pricing table.
+- **Enabled Pause/Resume Session Restriction** (`session.py` & `ActiveSessionView.jsx`): Enforced `pause_allowed` restrictions by checking session parameters, rejecting pause requests on the backend, and hiding the pause button on the frontend for the ₱20 package.
+- **Database Schema & Data Initialization**: Added `pause_allowed` column to the `sessions` table and updated the `rates` database entries to match the new ₱1-₱20 pricing on system startup.
+- **Fixed Session Restoration UI Synchronization** (`CoinPopup.jsx`): Resolved UI flicker/Landing Page flash when closing the coin insertion popup by dynamically restoring the previous state (ACTIVE or PAUSED) and checking the updated backend status when coins are inserted.
+
 ## [v1.0.4] - 2026-07-14
 
 ### Performance & Reliability

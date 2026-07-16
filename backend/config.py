@@ -26,3 +26,43 @@ SERIAL_RECONNECT_INTERVAL = int(os.getenv("SERIAL_RECONNECT_INTERVAL", "5"))
 SERIAL_DEBOUNCE_MS = int(os.getenv("SERIAL_DEBOUNCE_MS", "300"))
 SCHEDULER_INTERVAL = int(os.getenv("SCHEDULER_INTERVAL", "1"))
 BACKUP_TIME = os.getenv("BACKUP_TIME", "03:00")
+
+# Centralized pricing table: amount -> (minutes, pause_allowed)
+PRICING_TABLE = {
+    1: (20, True),
+    2: (40, True),
+    3: (60, True),
+    4: (80, True),
+    5: (180, True),
+    6: (200, True),
+    7: (220, True),
+    8: (240, True),
+    9: (260, True),
+    10: (360, True),
+    11: (380, True),
+    12: (400, True),
+    13: (420, True),
+    14: (440, True),
+    15: (600, True),
+    16: (620, True),
+    17: (640, True),
+    18: (660, True),
+    19: (680, True),
+    20: (1440, False),
+}
+
+def get_minutes_and_pause_eligibility(amount: int) -> tuple[int, bool]:
+    if amount <= 0:
+        return 0, True
+    if amount in PRICING_TABLE:
+        return PRICING_TABLE[amount]
+    # Handle composite values (e.g. combinations of packages for values > 20)
+    twenties = amount // 20
+    remainder = amount % 20
+    total_mins = twenties * 1440
+    pause_allowed = True if twenties == 0 else False
+    if remainder > 0:
+        rem_mins, rem_pause = PRICING_TABLE[remainder]
+        total_mins += rem_mins
+        pause_allowed = pause_allowed and rem_pause
+    return total_mins, pause_allowed

@@ -18,6 +18,22 @@
 - [ ] Multi-AP roaming support (Using a central RADIUS or migrating from MAC tracking to Voucher/Token tracking).
 - [ ] Implement tiered bandwidth pricing (e.g. 5 Mbps vs 20 Mbps packages).
 
+## Completed (v1.0.5)
+- [x] Implement pricing table based on total accumulated peso amount.
+- [x] Implement non-pausable 24-hour package for ₱20 total inserted amount.
+- [x] Reject Pause requests on the backend and hide the Pause button on the frontend for non-pausable sessions.
+- [x] Eliminate the Landing Page flash / UI flicker when closing the CoinPopup after extending a session.
+- [x] Fix the NameError regression on Pause/Resume routes by restoring missing repository imports.
+- [x] Seeding/initializing new pricing rates dynamically on system startup.
+
+## Completed (v1.0.4)
+- [x] Run `StartupSequence` recovery chain inside lifespan startup hook (`R-01`).
+- [x] Move coin drop logging from volatile `/tmp/` to persistent `/opt/pisowifi/run/` (`R-02`).
+- [x] Add declarative `sync_firewall` auditor job to keep `nftables` in absolute sync with database (`R-03`).
+- [x] Automate IP renewal firewall migration check on client detection endpoints (`R-04`).
+- [x] Add monotonic clock jump monitor in background scheduler to compensate NTP time adjustments (`R-05`).
+- [x] Consolidate Client and Session SQL queries into a single outer join query (`H-01`).
+
 ## Completed (v1.0.3)
 - [x] Keep Insert Coin button always visible in all session states.
 - [x] Add premium border pulse glow animation to countdown screen (improved to layered neon).

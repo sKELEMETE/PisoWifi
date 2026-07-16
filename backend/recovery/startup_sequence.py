@@ -60,9 +60,7 @@ class StartupSequence:
                         coins = json.load(f)
                     if coins:
                         logger.info("Reconciling %d coin(s) for MAC: %s", len(coins), mac)
-                        for i, coin_val in enumerate(coins):
-                            is_last = (i == len(coins) - 1)
-                            coin_service.process_coin(mac, coin_val, authorize=is_last)
+                        coin_service.process_coins_bulk(mac, coins, authorize=True)
                 except Exception as exc:
                     logger.error("Failed to reconcile file %s: %s", filename, exc)
                 finally:

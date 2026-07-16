@@ -191,11 +191,7 @@ def release_slot(mac: str, db: Session = Depends(get_db)):
                 session_service=session_service,
                 sale_repository=sales_repository,
             )
-            # Process all coins except the last without calling firewall subprocesses.
-            # Perform single final authorization on the last processed coin.
-            for i, coin_val in enumerate(coins):
-                is_last = (i == len(coins) - 1)
-                coin_service.process_coin(validated.mac, coin_val, authorize=is_last)
+            coin_service.process_coins_bulk(validated.mac, coins, authorize=True)
 
         # Clean up reservation files
         for path in (ACTIVE_MAC_FILE, PENDING_COIN_FILE, coins_file):

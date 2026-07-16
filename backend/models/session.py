@@ -79,6 +79,11 @@ class Session(Base):
         nullable=True,
     )
 
+    pause_allowed: Mapped[bool] = mapped_column(
+        default=True,
+        nullable=False,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),

@@ -101,12 +101,14 @@ export default function ActiveSessionView({
                 {loading ? "Activating..." : "Insert Coin"}
             </Button>
 
-            <Button
-                onClick={handlePause}
-                variant="secondary"
-            >
-                Pause Session
-            </Button>
+            {session?.pause_allowed !== false && (
+                <Button
+                    onClick={handlePause}
+                    variant="secondary"
+                >
+                    Pause Session
+                </Button>
+            )}
 
             {showPopup && macAddress && (
                 <CoinPopup 

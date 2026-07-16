@@ -146,9 +146,7 @@ class CoinListener:
                         session_service=session_service,
                         sale_repository=sales_repository,
                     )
-                    for i, coin_val in enumerate(coins):
-                        is_last = (i == len(coins) - 1)
-                        coin_service.process_coin(mac, coin_val, authorize=is_last)
+                    coin_service.process_coins_bulk(mac, coins, authorize=True)
                     logger.info("Watchdog: session finalized for %s.", mac)
                 except Exception as exc:
                     logger.error("Watchdog: failed to finalize session for %s: %s", mac, exc)

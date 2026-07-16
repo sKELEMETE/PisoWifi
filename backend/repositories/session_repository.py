@@ -71,6 +71,7 @@ class SessionRepository(BaseRepository):
         client_id: int,
         rate_id: int,
         minutes: int,
+        pause_allowed: bool = True,
     ):
         now = datetime.now()
 
@@ -82,6 +83,7 @@ class SessionRepository(BaseRepository):
             status="ACTIVE",
             start_time=now,
             end_time=now + timedelta(minutes=minutes),
+            pause_allowed=pause_allowed,
         )
 
         self.db.add(session)

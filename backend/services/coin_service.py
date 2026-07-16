@@ -33,3 +33,40 @@ class CoinService:
         )
         self.sale_repository.create(sale)
         return session
+
+    def process_coins_bulk(self, mac_address: str, coins: list[int], authorize: bool = True):
+        if not coins:
+            return None
+
+        total_amount = sum(coins)
+        from config import get_minutes_and_pause_eligibility
+        total_minutes, pause_allowed = get_minutes_and_pause_eligibility(total_amount)
+
+        # Retrieve rate package matching total amount, fallback to 20 or 1
+        rate = self.rate_repository.get_by_coin(total_amount)
+        if rate is None:
+            rate = self.rate_repository.get_by_coin(20) or self.rate_repository.get_by_coin(1)
+
+        client = self.client_repository.get_or_create(mac_address)
+        session = self.session_service.create_or_extend_session(
+            client.id,
+            rate.id,
+            total_minutes,
+            authorize=authorize,
+            pause_allowed=pause_allowed,
+        )
+
+        # Insert Sale records for each coin (minutes=0 to prevent double-crediting)
+        for coin_val in coins:
+            coin_rate = self.rate_repository.get_by_coin(coin_val)
+            rate_id = coin_rate.id if coin_rate else rate.id
+            sale = Sale(
+                session_id=session.id,
+                rate_id=rate_id,
+                amount=coin_val,
+                minutes=0,
+                payment_method=PaymentMethod.COIN,
+            )
+            self.sale_repository.create(sale)
+
+        return session
