@@ -194,7 +194,7 @@ def main():
     print(f" - Hardware Serial Port:  {args.serial_port}")
     print("==================================================")
 
-    # 1. Generate local environment content
+    # 1. Generate local environment content (include default admin credentials)
     env_content = f"""# PisoWiFi Environment Settings
 PISOWIFI_BASE_DIR={args.base_dir}
 PISOWIFI_RUN_DIR={args.base_dir}/run
@@ -205,6 +205,10 @@ PISOWIFI_LAN_INTERFACE_FALLBACK={args.lan_interface}
 SERIAL_PORT={args.serial_port}
 PISOWIFI_BACKEND_PORT={args.backend_port}
 CAPTIVE_PORTAL_PORT={args.captive_portal_port}
+
+# Admin Credentials Hardening
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
 """
 
     rollback_mgr = RollbackManager()
@@ -264,10 +268,13 @@ CAPTIVE_PORTAL_PORT={args.captive_portal_port}
                     rollback_mgr.copy_file(cli_src, cli_dst)
                     os.chmod(cli_dst, 0o755)
 
-                # Reload systemd
+                # Reload systemd and restart backend services
                 print("Reloading systemd daemons...")
                 subprocess.run(["systemctl", "daemon-reload"], check=False)
-                print("[OK] Deployment configuration installed to system successfully!")
+                print("Restarting systemd backend services...")
+                subprocess.run(["systemctl", "restart", "pisowifi-backend"], check=False)
+                subprocess.run(["systemctl", "restart", "pisowifi-coin"], check=False)
+                print("[OK] Deployment configuration installed and services restarted successfully!")
         else:
             if not args.dry_run:
                 print("\nTo apply these configurations to your system, run as root:")

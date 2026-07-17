@@ -21,6 +21,21 @@ class PowerRecovery:
     def recover(self):
         logger.info("Starting power recovery...")
 
+        # Check system uptime to distinguish a system reboot (power failure) from a backend restart.
+        is_system_reboot = False
+        try:
+            with open("/proc/uptime", "r") as f:
+                uptime_seconds = float(f.read().split()[0])
+                # If system booted less than 120 seconds ago, it is a hardware reboot/power cycle
+                if uptime_seconds < 120:
+                    is_system_reboot = True
+        except Exception as exc:
+            logger.warning("Could not read system uptime, defaulting to False: %s", exc)
+
+        if not is_system_reboot:
+            logger.info("System uptime is healthy. Treating as a clean backend restart. Skipping active session pausing.")
+            return 0
+
         sessions = self.session_repository.get_active_sessions()
 
         recovered = 0

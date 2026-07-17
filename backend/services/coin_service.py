@@ -23,12 +23,12 @@ class CoinService:
                 client.id,
                 rate.id,
                 rate.minutes,
-                authorize=authorize,
+                authorize=False,
                 commit=False,
             )
 
             sale = Sale(
-                session_id=session.id,
+                session=session,
                 rate_id=rate.id,
                 amount=coin_value,
                 minutes=rate.minutes,
@@ -37,6 +37,10 @@ class CoinService:
             self.sale_repository.create(sale, commit=False)
             db.commit()
             db.refresh(session)
+
+            if client.current_ip and authorize:
+                self.session_service.firewall.authorize(client.current_ip)
+
             return session
         except Exception as exc:
             db.rollback()
@@ -65,7 +69,7 @@ class CoinService:
                 client.id,
                 rate.id,
                 total_minutes,
-                authorize=authorize,
+                authorize=False,
                 pause_allowed=pause_allowed,
                 commit=False,
             )
@@ -75,7 +79,7 @@ class CoinService:
                 coin_rate = self.rate_repository.get_by_coin(coin_val)
                 rate_id = coin_rate.id if coin_rate else rate.id
                 sale = Sale(
-                    session_id=session.id,
+                    session=session,
                     rate_id=rate_id,
                     amount=coin_val,
                     minutes=0,
@@ -86,6 +90,8 @@ class CoinService:
             if commit:
                 db.commit()
                 db.refresh(session)
+                if client.current_ip and authorize:
+                    self.session_service.firewall.authorize(client.current_ip)
             return session
         except Exception as exc:
             if commit:

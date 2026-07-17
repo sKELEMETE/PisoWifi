@@ -55,7 +55,7 @@ class SessionService:
             client.status = "ONLINE"
             if commit:
                 self.session_repository.db.commit()
-            if client.current_ip and authorize:
-                self.firewall.authorize(client.current_ip)
+                if client.current_ip and authorize:
+                    self.firewall.authorize(client.current_ip)
 
         return session

@@ -76,11 +76,17 @@ def get_diagnostics(db: Session = Depends(get_db)):
             "port": serial_port,
             "connected": serial_connected,
             "driver": serial_driver
+        },
+        "admin_security": {
+            "default_credentials_detected": config.IS_DEFAULT_CREDENTIALS,
+            "plaintext_password_mode": config.PLAINTEXT_MODE,
+            "rate_limiter_active": True,
+            "admin_auth_mode": "cookie-jwt"
         }
     }
 
-    # Overall health evaluation
-    overall_healthy = db_connected and run_dir_writable and all(t["exists"] for t in tools.values())
+    # Overall health evaluation: mark unhealthy if default credentials are detected for hardening
+    overall_healthy = db_connected and run_dir_writable and all(t["exists"] for t in tools.values()) and not config.IS_DEFAULT_CREDENTIALS
     if serial_driver.lower() != "mock":
         overall_healthy = overall_healthy and serial_connected
 

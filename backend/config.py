@@ -1,9 +1,15 @@
 from dotenv import load_dotenv
 import os
+import shutil
 
-# Check /opt/pisowifi/.env first, otherwise look for .env in the project directory
-env_path = "/opt/pisowifi/.env" if os.path.exists("/opt/pisowifi/.env") else os.path.join(os.path.dirname(__file__), ".env")
-load_dotenv(env_path)
+# Load system-wide environment configuration
+if os.path.exists("/opt/pisowifi/.env"):
+    load_dotenv("/opt/pisowifi/.env")
+
+# Load project-local backend environment configuration
+local_env = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(local_env):
+    load_dotenv(local_env)
 
 DATABASE_HOST = os.getenv("DATABASE_HOST", "localhost")
 DATABASE_PORT = os.getenv("DATABASE_PORT", "3306")
@@ -41,10 +47,10 @@ GATEWAY_IP = os.getenv("PISOWIFI_GATEWAY_IP", "10.0.0.1")
 SUBNET_CIDR = os.getenv("PISOWIFI_SUBNET_CIDR", "10.0.0.0/24")
 LAN_INTERFACE_FALLBACK = os.getenv("PISOWIFI_LAN_INTERFACE_FALLBACK", "enxc817f552a5c6")
 
-import shutil
-
 def find_binary(name: str, fallback_path: str) -> str:
-    path = shutil.which(name)
+    # Search standard paths first to support restricted systemd PATH environment
+    search_paths = "/usr/sbin:/usr/bin:/sbin:/bin"
+    path = shutil.which(name, path=search_paths)
     if path:
         return path
     return fallback_path
@@ -104,3 +110,42 @@ def get_minutes_and_pause_eligibility(amount: int) -> tuple[int, bool]:
         total_mins += rem_mins
         pause_allowed = pause_allowed and rem_pause
     return total_mins, pause_allowed
+
+# Admin Panel Settings
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
+
+# Strict check: If neither exists in environment, raise a clear startup error
+admin_pwd_env = os.getenv("ADMIN_PASSWORD")
+admin_pwd_hash_env = os.getenv("ADMIN_PASSWORD_HASH")
+if (admin_pwd_env is None or admin_pwd_env.strip() == "") and (admin_pwd_hash_env is None or admin_pwd_hash_env.strip() == ""):
+    raise RuntimeError("Configuration Error: Neither ADMIN_PASSWORD nor ADMIN_PASSWORD_HASH is configured in the environment (.env).")
+
+ADMIN_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "supersecretjwtkeyforadmin")
+ADMIN_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_TOKEN_EXPIRE_HOURS", "2"))
+
+# Check credential security modes
+PLAINTEXT_MODE = (ADMIN_PASSWORD_HASH is None or ADMIN_PASSWORD_HASH.strip() == "") and (ADMIN_PASSWORD is not None and ADMIN_PASSWORD.strip() != "")
+
+is_default_hash = False
+if ADMIN_PASSWORD_HASH:
+    try:
+        import bcrypt
+        is_default_hash = bcrypt.checkpw("admin123".encode("utf-8"), ADMIN_PASSWORD_HASH.encode("utf-8"))
+    except Exception:
+        pass
+
+IS_DEFAULT_CREDENTIALS = (ADMIN_USERNAME == "admin") and (
+    (PLAINTEXT_MODE and ADMIN_PASSWORD == "admin123") or is_default_hash
+)
+
+# Startup logging checks (will be logged on startup)
+import logging
+logger = logging.getLogger("admin_config")
+
+if IS_DEFAULT_CREDENTIALS:
+    logger.critical("CRITICAL SECURITY WARNING: Default credentials (admin / admin123) are detected! Please change them in .env immediately.")
+
+if PLAINTEXT_MODE:
+    logger.warning("SECURITY WARNING: Admin password is stored in plaintext (.env variable ADMIN_PASSWORD). Please migrate to ADMIN_PASSWORD_HASH using bcrypt for production hardening.")

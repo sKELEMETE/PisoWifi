@@ -153,9 +153,11 @@ def release_slot(mac: str, db: Session = Depends(get_db)):
         pending_records = db.query(PendingCoin).filter(PendingCoin.mac == validated.mac).all()
         coins = [r.amount for r in pending_records]
 
+        client_repository = ClientRepository(db)
+        client = client_repository.get_by_mac(validated.mac)
+
         if coins:
             rate_repository = RateRepository(db)
-            client_repository = ClientRepository(db)
             sales_repository = SalesRepository(db)
             session_repository = SessionRepository(db)
             session_service = SessionService(session_repository)
@@ -165,12 +167,16 @@ def release_slot(mac: str, db: Session = Depends(get_db)):
                 session_service=session_service,
                 sale_repository=sales_repository,
             )
-            coin_service.process_coins_bulk(validated.mac, coins, authorize=True, commit=False)
+            coin_service.process_coins_bulk(validated.mac, coins, authorize=False, commit=False)
 
         # Clean up reservation database records
         db.query(CoinReservation).filter(CoinReservation.mac == validated.mac).delete()
         db.query(PendingCoin).filter(PendingCoin.mac == validated.mac).delete()
         db.commit()
+
+        if coins and client and client.current_ip:
+            from services.firewall_service import FirewallService
+            FirewallService().authorize(client.current_ip)
 
     except Exception as e:
         db.rollback()

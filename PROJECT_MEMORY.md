@@ -28,6 +28,13 @@ The project is fully functional and production-ready. The captive portal, sessio
 - **Transactional Installer & Rollback Manager (Deployment Phase 2)**: Added a transactional installer layer (`RollbackManager`) that tracks system modifications (file writes, link operations, and template copy processes) and rolls them back in reverse order on failure. Integrated pre-install configuration validation backups, dry-run simulation capabilities, and a full system uninstaller.
 - **CLI Framework, Doctor Command & Rotating Logs (Deployment Phase 3)**: Developed the `pisowifi` CLI command tool to run comprehensive system audits (`pisowifi doctor`) classifying system states. Structured rotating logs were centralized under `/opt/pisowifi/logs/` separating `install.log`, `rollback.log`, `migration.log`, and `doctor.log`.
 - **Single Scrollable Card Layout**: Redesigned the portal wrapper so the entire portal card scrolls as a single unified container under one custom thin scrollbar. Replaced nested scrolls and removed the footer to maximize viewport real estate on mobile devices.
+- **Admin Panel Production Hardening & Regression Fixes**:
+  - Implemented dynamic path lookup for system commands (`tc`, `ip`, `modprobe`, `systemctl`) using `shutil.which` to bypass systemd restricted environments.
+  - Implemented layered environment config loading to support system `/opt/pisowifi/.env` and project-local `backend/.env`.
+  - Added MAC Randomization session migration: rebinding existing active database sessions on reconnected devices using the same leased IP.
+  - Deferred firewall authorizations and notifications until after successful database transaction commits, ensuring database and firewall state consistency.
+  - Appended Cache-Control headers to API responses and query cache-busters to frontend fetches to prevent captive portal WebView caching.
+  - Hardened active clients layout design in Admin Dashboard styling.
 
 ## Complete Architecture
 - **Hardware**: Ubuntu Server running the core stack, connected to an AP. An Arduino listens to a coin acceptor and transmits data over Serial.

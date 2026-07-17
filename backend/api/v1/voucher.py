@@ -50,10 +50,15 @@ def redeem_voucher(code: str, mac: str, db: Session = Depends(get_db)):
         client_id=client.id,
         rate_id=rate_id,
         minutes=voucher.minutes,
+        authorize=False,
+        commit=False,
     )
 
     voucher.status = "USED"
     db.commit()
+
+    if client.current_ip:
+        session_service.firewall.authorize(client.current_ip)
 
     return success({
         "session_id": session.id,

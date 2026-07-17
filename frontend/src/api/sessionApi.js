@@ -3,7 +3,7 @@ import api from "./client";
 export const getSession = async (mac) => {
 
     const response = await api.get(
-        `/session/${mac}`
+        `/session/${mac}?t=${Date.now()}`
     );
 
     return response.data;

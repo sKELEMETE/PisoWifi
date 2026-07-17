@@ -40,6 +40,26 @@ def get_current_client(request: Request, db: Session = Depends(get_db)):
 
     from models.client import Client as ClientModel
     other_clients = db.query(ClientModel).filter(ClientModel.current_ip == ip_address, ClientModel.id != client.id).all()
+
+    # Session migration for MAC randomization:
+    # If the current client has no active session, but an other client on the same IP has one,
+    # we migrate the active session to the current client to preserve the portal state.
+    from repositories.session_repository import SessionRepository
+    session_repo = SessionRepository(db)
+    active_session_for_current = session_repo.get_active_session_by_client_id(client.id)
+
+    if not active_session_for_current:
+        for other in other_clients:
+            active_session_for_other = session_repo.get_active_session_by_client_id(other.id)
+            if active_session_for_other:
+                active_session_for_other.client_id = client.id
+                session_repo.update(active_session_for_other)
+                other.status = "OFFLINE"
+                repo.update(other)
+                client.status = "ONLINE"
+                repo.update(client)
+                break
+
     for other in other_clients:
         other.current_ip = None
         repo.update(other)

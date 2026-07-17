@@ -2,6 +2,21 @@
 
 All notable changes to the PisoWiFi project will be documented in this file.
 
+## [1.11.0] - 2026-07-18
+
+### Added
+- Deployed dynamic systemctl command resolution in diagnostics health audits.
+- Implemented MAC Randomization session migration in `get_current_client`.
+- Added Cache-Control response headers middleware to all `/api/` endpoints to prevent browser and Captive Portal WebView caching.
+- Integrated query parameter cache busting in frontend `getSession` and `getClient` API fetch queries.
+
+### Fixed
+- Fixed Uvicorn restricted environment path failures resolving system tools (`tc`, `ip`, `modprobe`).
+- Fixed Admin Panel dotenv loading priorities and fallback credentials checks.
+- Fixed startup recovery power sequence pausing active sessions on backend restarts (treating them as reboots only if host uptime is < 120s).
+- Fixed database session transaction rollbacks by resolving the uncommitted `Sale` Session ID association and deferring firewall authorizations until after database commits successfully complete.
+- Hardened Active Clients layout design in Admin Dashboard styling.
+
 ## [1.1.0] - 2026-07-16
 
 ### Added

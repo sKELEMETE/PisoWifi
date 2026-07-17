@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 import branding from "./config/branding";
@@ -15,8 +16,11 @@ ReactDOM.createRoot(
 
     <React.StrictMode>
 
-        <App />
+        <BrowserRouter>
+            <App />
+        </BrowserRouter>
 
     </React.StrictMode>
 
 );
+

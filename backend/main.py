@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from services.firewall_service import FirewallService
 import config
@@ -11,6 +11,7 @@ from api.v1.session import router as session_router
 from api.v1.voucher import router as voucher_router
 from api.v1.coin import router as coin_router
 from api.v1.health import router as health_router
+from api.admin import router as admin_router
 from scheduler.scheduler_service import SchedulerService
 from fastapi.staticfiles import StaticFiles
 
@@ -83,6 +84,7 @@ async def lifespan(app: FastAPI):
 
     scheduler = SchedulerService()
     scheduler.start()
+    app.state.scheduler = scheduler
     yield
     scheduler.stop()
 
@@ -100,12 +102,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 app.include_router(health_router)
 app.include_router(api_router)
 app.include_router(session_router)
 app.include_router(voucher_router)
 app.include_router(coin_router)
 app.include_router(client_router)
+app.include_router(admin_router)
 app.mount("/api/sfx", StaticFiles(directory=config.SFX_DIRECTORY), name="sfx")
 register_exception_handlers(app)
 
