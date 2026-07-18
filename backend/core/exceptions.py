@@ -37,6 +37,26 @@ def register_exception_handlers(app: FastAPI):
             },
         )
 
+    from fastapi.exceptions import HTTPException as FastAPIHTTPException
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    @app.exception_handler(FastAPIHTTPException)
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request,
+        exc: StarletteHTTPException
+    ):
+        detail_msg = exc.detail if hasattr(exc, "detail") else str(exc)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "success": False,
+                "message": detail_msg,
+                "detail": detail_msg,
+                "errors": [],
+            },
+        )
+
     @app.exception_handler(Exception)
     async def global_exception_handler(
         request: Request,

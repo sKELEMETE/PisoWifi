@@ -2,6 +2,19 @@
 
 All notable changes to the PisoWiFi project will be documented in this file.
 
+## [1.12.0] - 2026-07-18
+
+### Added
+- Deployed a thread-safe `HealthCacheService` memory cache to hold system diagnostics.
+- Mounted an asynchronous background task runner in `main.py` lifespan to refresh health diagnostics in a background thread every 30 seconds.
+- Implemented thread-safe caching of the auto-detected serial port in `detect_serial_device()`, reducing consecutive check times from 840ms to <0.1ms.
+- Implemented actual rolling CPU usage percent calculation using tick deltas from `/proc/stat`.
+- Configured the frontend admin dashboard to poll every 15 seconds (reduced from 5 seconds) and changed the DNS label from "Resolving" to "DNS Online".
+
+### Changed
+- Refactored the `/api/admin/dashboard` endpoint to serve system health metrics directly from `HealthCacheService` without blocking diagnostic executions.
+- Consolidated the three sales aggregation queries into a single database SQL statement utilizing conditional `SUM(CASE WHEN...)` aggregation, dropping sales query execution latency by 95%.
+
 ## [1.11.0] - 2026-07-18
 
 ### Added

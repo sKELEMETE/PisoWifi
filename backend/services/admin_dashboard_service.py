@@ -25,36 +25,29 @@ class AdminDashboardService:
 
     def get_sales_data(self) -> dict:
         try:
+            from sqlalchemy import case
             now = datetime.now()
             today_start = datetime.combine(now.date(), datetime.min.time())
             week_start = today_start - timedelta(days=now.weekday())
             month_start = datetime(now.year, now.month, 1)
+            oldest_start = min(week_start, month_start)
 
-            today_sales = self.db.execute(
-                select(func.sum(Sale.amount)).where(
-                    Sale.payment_method == PaymentMethod.COIN,
-                    Sale.created_at >= today_start
-                )
-            ).scalar() or 0
+            stmt = select(
+                func.sum(case((Sale.created_at >= today_start, Sale.amount), else_=0)),
+                func.sum(case((Sale.created_at >= week_start, Sale.amount), else_=0)),
+                func.sum(case((Sale.created_at >= month_start, Sale.amount), else_=0))
+            ).where(
+                Sale.payment_method == PaymentMethod.COIN,
+                Sale.created_at >= oldest_start
+            )
 
-            week_sales = self.db.execute(
-                select(func.sum(Sale.amount)).where(
-                    Sale.payment_method == PaymentMethod.COIN,
-                    Sale.created_at >= week_start
-                )
-            ).scalar() or 0
-
-            month_sales = self.db.execute(
-                select(func.sum(Sale.amount)).where(
-                    Sale.payment_method == PaymentMethod.COIN,
-                    Sale.created_at >= month_start
-                )
-            ).scalar() or 0
+            res = self.db.execute(stmt).first()
+            today_sales, week_sales, month_sales = res or (0, 0, 0)
 
             return {
-                "today": int(today_sales),
-                "week": int(week_sales),
-                "month": int(month_sales)
+                "today": int(today_sales or 0),
+                "week": int(week_sales or 0),
+                "month": int(month_sales or 0)
             }
         except Exception as exc:
             logger.error("Failed to query sales data: %s", exc)
@@ -170,14 +163,7 @@ class AdminDashboardService:
             pass
 
         # CPU usage
-        cpu_percent = 0.0
-        try:
-            cores = os.cpu_count() or 1
-            with open("/proc/loadavg", "r") as f:
-                load = f.read().split()
-                cpu_percent = min(100.0, round((float(load[0]) / cores) * 100, 1))
-        except Exception:
-            pass
+        cpu_percent = get_cpu_usage_percent()
 
         # RAM usage
         ram_total = ram_free = ram_used = ram_percent = 0
@@ -341,3 +327,92 @@ class AdminDashboardService:
                 "serial_driver": config.SERIAL_DRIVER,
             }
         }
+
+
+import threading
+import asyncio
+
+_last_cpu_ticks = None
+_cpu_lock = threading.Lock()
+
+def get_cpu_usage_percent() -> float:
+    global _last_cpu_ticks
+    try:
+        with open("/proc/stat", "r") as f:
+            line = f.readline()
+        parts = line.split()
+        if len(parts) >= 5:
+            # user, nice, system, idle, iowait, irq, softirq, steal
+            ticks = [float(x) for x in parts[1:9]]
+            idle_ticks = ticks[3] + ticks[4]  # idle + iowait
+            total_ticks = sum(ticks)
+            
+            with _cpu_lock:
+                if _last_cpu_ticks is not None:
+                    prev_idle, prev_total = _last_cpu_ticks
+                    idle_diff = idle_ticks - prev_idle
+                    total_diff = total_ticks - prev_total
+                    if total_diff > 0:
+                        usage = round((1.0 - (idle_diff / total_diff)) * 100, 1)
+                        _last_cpu_ticks = (idle_ticks, total_ticks)
+                        return min(100.0, max(0.0, usage))
+                
+                _last_cpu_ticks = (idle_ticks, total_ticks)
+        return 0.0
+    except Exception:
+        return 0.0
+
+
+class HealthCacheService:
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(HealthCacheService, cls).__new__(cls)
+                cls._instance._initialized = False
+            return cls._instance
+
+    def __init__(self):
+        with self._lock:
+            if getattr(self, "_initialized", False):
+                return
+            self._cache = None
+            self._cache_lock = threading.Lock()
+            self._initialized = True
+
+    def get_cached_health(self) -> dict | None:
+        with self._cache_lock:
+            return self._cache
+
+    def set_cached_health(self, data: dict):
+        with self._cache_lock:
+            self._cache = data
+
+
+def start_health_updater(app):
+    async def update_loop():
+        # Let startup migrations and recoveries settle
+        await asyncio.sleep(5)
+        while True:
+            try:
+                from database import SessionLocal
+                db = SessionLocal()
+                
+                class MockRequest:
+                    def __init__(self, app):
+                        self.app = app
+                mock_request = MockRequest(app)
+                
+                service = AdminDashboardService(db)
+                loop = asyncio.get_running_loop()
+                data = await loop.run_in_executor(None, service.get_system_health, mock_request)
+                HealthCacheService().set_cached_health(data)
+                db.close()
+            except Exception as e:
+                logger.error("Error in background health update loop: %s", e)
+            await asyncio.sleep(30)
+
+    task = asyncio.create_task(update_loop())
+    app.state.health_updater_task = task

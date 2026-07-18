@@ -112,17 +112,21 @@ def get_minutes_and_pause_eligibility(amount: int) -> tuple[int, bool]:
     return total_mins, pause_allowed
 
 # Admin Panel Settings
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
+if not ADMIN_USERNAME or ADMIN_USERNAME.strip() == "":
+    raise RuntimeError("Configuration Error: ADMIN_USERNAME is missing or empty in the environment (.env).")
 
-# Strict check: If neither exists in environment, raise a clear startup error
 admin_pwd_env = os.getenv("ADMIN_PASSWORD")
 admin_pwd_hash_env = os.getenv("ADMIN_PASSWORD_HASH")
 if (admin_pwd_env is None or admin_pwd_env.strip() == "") and (admin_pwd_hash_env is None or admin_pwd_hash_env.strip() == ""):
     raise RuntimeError("Configuration Error: Neither ADMIN_PASSWORD nor ADMIN_PASSWORD_HASH is configured in the environment (.env).")
 
-ADMIN_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "supersecretjwtkeyforadmin")
+ADMIN_PASSWORD = admin_pwd_env
+ADMIN_PASSWORD_HASH = admin_pwd_hash_env
+
+ADMIN_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET")
+if not ADMIN_JWT_SECRET or ADMIN_JWT_SECRET.strip() == "":
+    raise RuntimeError("Configuration Error: ADMIN_JWT_SECRET is missing or empty in the environment (.env).")
 ADMIN_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_TOKEN_EXPIRE_HOURS", "2"))
 
 # Check credential security modes

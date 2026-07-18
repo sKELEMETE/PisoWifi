@@ -20,6 +20,7 @@ def migrate_env(base_dir: str) -> None:
     root_env = "/opt/pisowifi/.env"
     backend_env = os.path.join(base_dir, "backend", ".env")
 
+    import secrets
     # Defaults defined in config
     defaults = {
         "SERIAL_PORT": "AUTO",
@@ -33,6 +34,7 @@ def migrate_env(base_dir: str) -> None:
         "PISOWIFI_GATEWAY_IP": "10.0.0.1",
         "PISOWIFI_SUBNET_CIDR": "10.0.0.0/24",
         "PISOWIFI_LAN_INTERFACE_FALLBACK": "enxc817f552a5c6",
+        "ADMIN_JWT_SECRET": secrets.token_hex(16),
     }
 
     for path in [root_env, backend_env]:

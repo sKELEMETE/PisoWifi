@@ -38,3 +38,9 @@
 - **Method**: GET
 - **Purpose**: Retrieves the current session status for a specific client.
 - **Response**: `{"mac_address": "XX:XX:XX:XX:XX:XX", "status": "ACTIVE", "remaining_seconds": 1500}`
+
+### 7. `GET /api/admin/dashboard`
+- **Method**: GET
+- **Purpose**: Admin dashboard statistics, revenue metrics, active client listing, and diagnostics health details.
+- **Response**: Serves consolidated database sales data (today, week, month), lists active clients, and returns cached diagnostics stats (such as CPU tick utilization, memory usage, disk usage, WAN connect, and DNS online statuses).
+- **Optimization**: Uses `HealthCacheService` to serve diagnostic stats instantly from cache under 5ms.

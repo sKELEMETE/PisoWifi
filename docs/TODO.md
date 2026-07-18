@@ -11,12 +11,20 @@
 - [ ] Investigate older Android Captive Portal behavior when session is paused.
 
 ## Low
-- [ ] Create an admin dashboard to visualize active sessions and total daily revenue.
+- [x] Create an admin dashboard to visualize active sessions and total daily revenue.
 - [ ] Consolidate Nginx config blocks to make future proxy updates easier.
 
 ## Future Ideas
 - [ ] Multi-AP roaming support (Using a central RADIUS or migrating from MAC tracking to Voucher/Token tracking).
 - [ ] Implement tiered bandwidth pricing (e.g. 5 Mbps vs 20 Mbps packages).
+
+## Completed (v1.0.7)
+- [x] Optimize admin dashboard response time from ~1000ms to under 5ms using dynamic diagnostics caching (`HealthCacheService`).
+- [x] Implement thread-safe serial port caching in candidate discovery, eliminating sequential port scan timeouts.
+- [x] Consolidate sales query database aggregations (today, week, month) into a single SQL statement utilizing conditional aggregation.
+- [x] Implement rolling CPU utilization using active/idle tick deltas from `/proc/stat`.
+- [x] Configure admin dashboard polling interval to 15 seconds (reduced from 5s) to minimize DB/network overhead.
+- [x] Change the DNS health label to "DNS Online" inside the frontend dashboard.
 
 ## Completed (v1.0.6)
 - [x] Resolve bandwidth shaping filter bypass by introducing explicit `tc` filter handles (`800::{cid:x}`).

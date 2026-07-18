@@ -75,3 +75,15 @@ This document records the key technical and design decisions made for the PisoWi
 ### Decision: Minimizing Stable Code Refactoring
 *   **Context:** Rewriting stable backend routing or database logic introduces regressions.
 *   **Decision:** Strictly prioritize backward-compatible enhancements. Implement fixes at the point of failure (e.g. recovery algorithms, filter commands) rather than rewriting central components.
+
+---
+
+## 4. Performance & Diagnostics
+
+### Decision: Decoupled Diagnostics Caching & Thread-Safe Serial Caching
+*   **Context:** Synchronous system audits (such as systemctl checks, WAN TCP handshakes, and dns resolution) and sequential hardware serial port scans on every request caused severe request latencies (~1000ms) and high system load.
+*   **Decision:**
+    *   **Health Caching (`HealthCacheService`):** Moved all diagnostic calculations out of the HTTP request thread. A background updater loop refreshes diagnostics in an isolated executor thread every 30 seconds.
+    *   **Serial Caching:** Cached the detected serial device path in memory and verify its presence using `os.path.exists()` on subsequent checks (<0.1ms), avoiding redundant scans.
+    *   **Consolidated Sales Aggregation:** Consolidated sales queries into a single database SQL statement utilizing conditional case-sums, reducing database query execution latency by 95% (from 100ms to 4.8ms).
+    *   **Actual CPU Calculation:** Replaced load average metrics with true rolling CPU utilization using active/idle tick deltas from `/proc/stat`.

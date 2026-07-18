@@ -78,7 +78,10 @@ def get_dashboard(
     service = AdminDashboardService(db)
     sales = service.get_sales_data()
     active_users = service.get_active_users()
-    system_health = service.get_system_health(request)
+    from services.admin_dashboard_service import HealthCacheService
+    system_health = HealthCacheService().get_cached_health()
+    if system_health is None:
+        system_health = service.get_system_health(request)
 
     dashboard_data = {
         "sales": sales,

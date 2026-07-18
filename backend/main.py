@@ -85,7 +85,35 @@ async def lifespan(app: FastAPI):
     scheduler = SchedulerService()
     scheduler.start()
     app.state.scheduler = scheduler
+
+    # Pre-populate health cache synchronously on startup
+    try:
+        from services.admin_dashboard_service import AdminDashboardService, HealthCacheService, start_health_updater
+        class MockRequest:
+            def __init__(self, app):
+                self.app = app
+        db = SessionLocal()
+        service = AdminDashboardService(db)
+        data = service.get_system_health(MockRequest(app))
+        HealthCacheService().set_cached_health(data)
+        db.close()
+        logger.info("Initial health cache pre-populated successfully.")
+    except Exception as exc:
+        logger.error("Failed to pre-populate initial health cache: %s", exc)
+
+    # Start asynchronous background updater
+    try:
+        start_health_updater(app)
+        logger.info("Background health cache updater started.")
+    except Exception as exc:
+        logger.error("Failed to start background health cache updater: %s", exc)
+
     yield
+
+    # Cleanup background updater
+    if hasattr(app.state, "health_updater_task"):
+        app.state.health_updater_task.cancel()
+
     scheduler.stop()
 
 app = FastAPI(
@@ -109,6 +137,15 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "same-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "font-src 'self' data:; "
+        "frame-ancestors 'none';"
+    )
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"

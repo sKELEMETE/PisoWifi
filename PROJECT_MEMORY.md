@@ -35,6 +35,12 @@ The project is fully functional and production-ready. The captive portal, sessio
   - Deferred firewall authorizations and notifications until after successful database transaction commits, ensuring database and firewall state consistency.
   - Appended Cache-Control headers to API responses and query cache-busters to frontend fetches to prevent captive portal WebView caching.
   - Hardened active clients layout design in Admin Dashboard styling.
+- **Performance Optimization & Decoupled Diagnostics (1.12.0 Release)**:
+  - Deployed `HealthCacheService` to cache system diagnostics in memory, running audits in a background thread every 30s instead of blocking API requests.
+  - Implemented thread-safe caching of auto-detected serial comports in `detect_serial_device()`, reducing serial resolution latency from 840ms to <0.1ms.
+  - Consolidated sales database aggregations into a single SQL statement utilizing conditional case-sums, reducing database sales query execution latency by 95%.
+  - Replaced load average metrics with true rolling CPU utilization using active/idle tick deltas from `/proc/stat`.
+  - Updated frontend dashboard polling to 15s (from 5s) and resolved the DNS label copy ("DNS Online").
 
 ## Complete Architecture
 - **Hardware**: Ubuntu Server running the core stack, connected to an AP. An Arduino listens to a coin acceptor and transmits data over Serial.

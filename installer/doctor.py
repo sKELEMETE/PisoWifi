@@ -128,8 +128,9 @@ class DoctorCheck:
     def check_system_services(self) -> tuple[str, str]:
         services = ["nginx", "dnsmasq", "hostapd"]
         inactive = []
+        systemctl_path = shutil.which("systemctl") or "/usr/bin/systemctl"
         for s in services:
-            res = subprocess.run(["systemctl", "is-active", s], capture_output=True, text=True)
+            res = subprocess.run([systemctl_path, "is-active", s], capture_output=True, text=True)
             if res.stdout.strip() != "active":
                 inactive.append(s)
         if inactive:

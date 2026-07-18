@@ -3,6 +3,7 @@ import serial
 import time
 import config
 from serial.tools import list_ports
+import threading
 
 # Target USB VID:PID pairs for common Arduino / USB-to-Serial chips
 TARGET_VID_PIDS = {
@@ -13,6 +14,9 @@ TARGET_VID_PIDS = {
     (0x2341, 0x0001),  # Arduino Uno/Mega
     (0x067B, 0x2303),  # Prolific PL2303
 }
+
+_cached_device = None
+_cache_lock = threading.Lock()
 
 
 def detect_serial_device() -> str | None:
@@ -25,6 +29,15 @@ def detect_serial_device() -> str | None:
     # 1. Manual override takes precedence
     if config.SERIAL_PORT and config.SERIAL_PORT.upper() != "AUTO":
         return config.SERIAL_PORT
+
+    global _cached_device
+    with _cache_lock:
+        if _cached_device is not None:
+            # Check if the cached device still exists in filesystem
+            if os.path.exists(_cached_device):
+                return _cached_device
+            else:
+                _cached_device = None
 
     # 2. Dynamic auto-detection
     ports = list_ports.comports()
@@ -70,9 +83,15 @@ def detect_serial_device() -> str | None:
                 data = ser.read(200)
                 decoded = data.decode(errors="ignore").upper()
                 if "PISOWIFI" in decoded or "PULSES" in decoded or "COIN" in decoded:
+                    with _cache_lock:
+                        _cached_device = device
                     return device
         except Exception:
             pass
 
     # Fallback to the highest-scoring candidate if no active banner was probed
-    return candidates[0][1]
+    fallback_device = candidates[0][1] if candidates else None
+    if fallback_device:
+        with _cache_lock:
+            _cached_device = fallback_device
+    return fallback_device

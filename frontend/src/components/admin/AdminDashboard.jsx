@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import useAdminStore from "../../store/adminStore";
 import adminApi from "../../api/adminClient";
-import Button from "../common/Button";
 import "../../styles/admin.css";
 
 export default function AdminDashboard() {
@@ -41,7 +40,7 @@ export default function AdminDashboard() {
         const startPolling = () => {
             if (intervalId) return;
             fetchDashboard();
-            intervalId = setInterval(fetchDashboard, 5000);
+            intervalId = setInterval(fetchDashboard, 15000);
         };
 
         const stopPolling = () => {
@@ -146,65 +145,33 @@ export default function AdminDashboard() {
 
     return (
         <section className="admin-layout">
-            {/* Sidebar */}
-            <aside className="admin-sidebar">
-                <div style={{ fontSize: "1.15rem", fontWeight: "600", color: "#fff", marginBottom: "32px", display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span>📶</span> PisoWiFi Admin
-                </div>
-
-                <nav style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1 }}>
-                    <div style={{
-                        padding: "10px 14px",
-                        borderRadius: "8px",
-                        background: "rgba(90, 223, 255, 0.1)",
-                        color: "var(--primary)",
-                        fontSize: "0.9rem",
-                        fontWeight: "500",
-                        cursor: "pointer"
-                    }}>
-                        📊 Dashboard
-                    </div>
-                    <div style={{ padding: "10px 14px", borderRadius: "8px", color: "var(--muted)", fontSize: "0.9rem", cursor: "not-allowed", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>👥 Clients</span>
-                        <span style={{ fontSize: "0.7rem", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px" }}>Soon</span>
-                    </div>
-                    <div style={{ padding: "10px 14px", borderRadius: "8px", color: "var(--muted)", fontSize: "0.9rem", cursor: "not-allowed", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>💰 Sales</span>
-                        <span style={{ fontSize: "0.7rem", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px" }}>Soon</span>
-                    </div>
-                    <div style={{ padding: "10px 14px", borderRadius: "8px", color: "var(--muted)", fontSize: "0.9rem", cursor: "not-allowed", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>❤️ Health</span>
-                        <span style={{ fontSize: "0.7rem", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px" }}>Soon</span>
-                    </div>
-                    <div style={{ padding: "10px 14px", borderRadius: "8px", color: "var(--muted)", fontSize: "0.9rem", cursor: "not-allowed", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>⚙️ Settings</span>
-                        <span style={{ fontSize: "0.7rem", background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px" }}>Soon</span>
-                    </div>
-                </nav>
-
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981" }}></div>
-                        <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>Logged in: {username}</span>
-                    </div>
-                    <Button onClick={handleLogout} variant="secondary">
-                        Sign Out
-                    </Button>
-                </div>
-            </aside>
-
             {/* Main Area */}
             <div className="admin-content">
                 <header className="admin-header">
                     <div>
-                        <h2 style={{ fontSize: "1.4rem", fontWeight: "600", color: "#fff" }}>Dashboard Analytics</h2>
-                        <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "2px" }}>Real-time gateway monitoring statistics</p>
+                        <h2 style={{ fontSize: "1.6rem", fontWeight: "700", color: "#fff", letterSpacing: "-0.5px" }}>Dashboard Analytics</h2>
+                        <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "4px" }}>Real-time gateway monitoring statistics</p>
                     </div>
-                    <div className="live-indicator">
-                        <span className="live-dot"></span>
-                        <span>Live Syncing</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+                        <div className="live-indicator">
+                            <span className="live-dot"></span>
+                            <span>Live Syncing</span>
+                        </div>
+                        <div style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                            borderLeft: "1px solid var(--border)",
+                            paddingLeft: "20px"
+                        }}>
+                            <span style={{ fontSize: "0.9rem", color: "#fff", fontWeight: "500" }}>👤 {username}</span>
+                            <button onClick={handleLogout} className="signout-btn">
+                                Sign Out
+                            </button>
+                        </div>
                     </div>
                 </header>
+
 
                 {fetchError && (
                     <div style={{
@@ -381,7 +348,7 @@ export default function AdminDashboard() {
                                             <span className="health-label">DNS Status</span>
                                             <span className={`health-status ${data.system_health.dns_ok ? "status-online" : "status-offline"}`}></span>
                                         </div>
-                                        <span className="health-detail">{data.system_health.dns_ok ? "Resolving" : "Unresolved"}</span>
+                                        <span className="health-detail">{data.system_health.dns_ok ? "DNS Online" : "Unresolved"}</span>
                                     </div>
                                     <div className="health-item">
                                         <div className="health-header">
@@ -478,8 +445,13 @@ export default function AdminDashboard() {
                                                 <td style={{ color: "var(--primary)", fontWeight: "600", fontFamily: "monospace" }}>{formatSeconds(user.remaining_time)}</td>
                                                 <td>{formatPurchased(user.purchased_time)}</td>
                                                 <td>
-                                                    <span className={`badge ${user.status === "ACTIVE" ? "badge-active" : "badge-paused"}`}>
-                                                        {user.status}
+                                                    <span className={`admin-status-badge ${
+                                                        (user.status || "").toUpperCase() === "ACTIVE" ? "badge-active" :
+                                                        (user.status || "").toUpperCase() === "PAUSED" ? "badge-paused" :
+                                                        (user.status || "").toUpperCase() === "EXPIRED" ? "badge-expired" :
+                                                        "badge-offline"
+                                                    }`}>
+                                                        {(user.status || "").toUpperCase()}
                                                     </span>
                                                 </td>
                                                 <td>{formatDateTime(user.connected_time)}</td>

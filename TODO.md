@@ -41,3 +41,11 @@ This file tracks the upcoming phases and tasks required to transition PisoWiFi i
   - Add automated `.env` settings migration matching old/new variables.
   - Implement template version verification using MD5 hashes to protect local configuration customizations.
 
+## Performance & Optimizations
+
+- [x] **Phase 1: Core Dashboard & Diagnostics Optimizations**
+  - Implement dynamic memory-based caching (`HealthCacheService`) for all system diagnostics checks (systemctl service checks, WAN checks, DNS checks) decoupled from HTTP request thread.
+  - Implement dynamic serial port path caching with disk-check validation to avoid 840ms port scanning latency.
+  - Optimize database aggregations into single conditional `SUM(CASE WHEN...)` statement.
+  - Implement rolling CPU calculation from `/proc/stat` to show actual CPU utilization delta.
+

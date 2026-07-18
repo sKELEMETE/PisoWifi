@@ -194,6 +194,8 @@ def main():
     print(f" - Hardware Serial Port:  {args.serial_port}")
     print("==================================================")
 
+    import secrets
+    jwt_secret = secrets.token_hex(16)
     # 1. Generate local environment content (include default admin credentials)
     env_content = f"""# PisoWiFi Environment Settings
 PISOWIFI_BASE_DIR={args.base_dir}
@@ -209,6 +211,7 @@ CAPTIVE_PORTAL_PORT={args.captive_portal_port}
 # Admin Credentials Hardening
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin123
+ADMIN_JWT_SECRET={jwt_secret}
 """
 
     rollback_mgr = RollbackManager()

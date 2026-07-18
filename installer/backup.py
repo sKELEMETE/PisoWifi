@@ -43,6 +43,7 @@ def create_and_validate_backup(base_dir: str, backup_dest_dir: str) -> str:
         with tarfile.open(backup_file, "w:gz") as tar:
             for path, arcname in target_files:
                 tar.add(path, arcname=arcname)
+        os.chmod(backup_file, 0o600)
     except Exception as e:
         raise RuntimeError(f"Backup archiving failed: {e}")
 

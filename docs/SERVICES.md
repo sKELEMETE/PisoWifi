@@ -35,3 +35,8 @@
 ## 5. `SchedulerService`
 - **Purpose**: Background tasks.
 - **Logic**: Periodically checks for expired sessions (remaining_seconds <= 0). Calls `SessionService` to terminate them and clean up firewall/bandwidth rules.
+
+## 6. `HealthCacheService`
+- **Purpose**: Dynamic diagnostics health status cache and rolling CPU tick delta tracker.
+- **Dependencies**: Threading lock, `asyncio` loop executor.
+- **Logic**: Decouples heavy diagnostic operations (Nginx/MariaDB service checks, WAN checks, DNS checks) from the web request lifecycle by running diagnostics in an asynchronous background thread every 30 seconds. The admin dashboard API retrieves data immediately from the cache.
