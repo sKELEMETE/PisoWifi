@@ -2,6 +2,16 @@
 
 All notable changes to the PisoWiFi project will be documented in this file.
 
+## [1.14.0] - 2026-07-21
+
+### Added
+- **Weak JWT Secret Detection**: Added startup warning in [config.py](file:///opt/pisowifi/backend/config.py) that detects common weak/default JWT secrets and low-entropy patterns.
+- **Voucher USED Status Protection**: Added service-layer guard in [voucher_service.py](file:///opt/pisowifi/backend/services/voucher_service.py) preventing deletion of vouchers with USED status, with API-level defense-in-depth in [admin_voucher.py](file:///opt/pisowifi/backend/api/v1/admin_voucher.py).
+- **install.py Hardening**: Added try/except guards around port input `int()` conversion to prevent `ValueError` crashes. Added return-code checking for systemd service restarts with per-service failure reporting.
+
+### Fixed
+- **Production Certification Remediation**: Resolved all issues from the final production audit. All 38 tests passing. Full report at `/tmp/pisowifi_output/remediation_report.txt`.
+
 ## [1.13.0] - 2026-07-21
 
 ### Added

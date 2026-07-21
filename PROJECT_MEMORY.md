@@ -42,6 +42,12 @@ The project is fully functional and production-ready. The captive portal, sessio
   - Added [AdminSettings.jsx](file:///opt/pisowifi/frontend/src/components/admin/AdminSettings.jsx) with Liquid Glass credential change forms that invalidate active sessions and force re-login upon changes.
   - Enforced fail-fast startup config validation, bcrypt-only authentication, JWT `iat` claims, and `path="/"` cookie security.
   - Expanded automated test suite to 38 passing tests ([test_credentials_management.py](file:///opt/pisowifi/backend/tests/api/test_credentials_management.py)).
+- **Production Certification & Security Hardening (1.14.0 / 2026-07-21)**:
+  - Added weak JWT secret detection warning in `config.py` at startup (common pattern match + character diversity check).
+  - Added service-layer USED status guard in `VoucherService.delete_voucher()` to prevent deletion of redeemed vouchers, with API-level defense-in-depth wrapper.
+  - Hardened `install.py` with try/except around integer input conversion and return-code checking for systemd service restarts.
+  - Completed final production audit across 30+ files; full remediation report saved to `/tmp/pisowifi_output/remediation_report.txt`.
+  - All 38 tests continue to pass with zero regressions.
 
 ## Complete Architecture
 - **Hardware**: Ubuntu Server running the core stack, connected to an AP. An Arduino listens to a coin acceptor and transmits data over Serial.

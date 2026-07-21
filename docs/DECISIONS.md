@@ -4,6 +4,15 @@ This document records the key technical and design decisions made for the PisoWi
 
 ---
 
+## 00. Production Certification Hardening — JWT, Voucher, Installer (2026-07-21)
+*   **Context:** Final audit before production certification identified two medium-severity issues: the JWT secret could silently be set to a weak/default value, and the `delete_voucher()` API could attempt to delete already-redeemed (USED) vouchers. Additionally, the installer lacked input validation for port numbers and silently ignored service restart failures.
+*   **Decision:**
+    - Added `warn_if_default_jwt_secret()` at `config.py` startup with common-pattern detection and character-diversity heuristics.
+    - Added `ValueError` raise in `VoucherService.delete_voucher()` when status is USED, with API-layer try/except.
+    - Added try/except around `int()` conversion in `install.py` line 163-168 for port inputs.
+    - Added return-code inspection for `systemctl restart` calls in `install.py` lines 278-289.
+*   **Consequences:** All three vulnerabilities mitigated without changing any API surface or breaking existing tests. 38/38 tests pass.
+
 ## 0. Voucher System Production Certification & Authentication Hardening (2026-07-21)
 *   **Context:** Admin login returned HTTP 401 due to bcrypt salt truncation during environment variable interpolation of `$` characters. First-time client voucher redemption returned HTTP 404 due to strict `get_by_mac()` checks.
 *   **Decision:**

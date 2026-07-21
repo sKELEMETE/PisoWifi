@@ -2,6 +2,21 @@
 
 This document logs significant architectural design decisions made during the evolution of the PisoWiFi platform.
 
+## [2026-07-21] Production Certification — Weak JWT Detection & Voucher USED Guard
+
+### Context
+During final production certification audit, two remaining medium-severity issues were identified: the JWT secret could be set to a weak/default value without warning, and the `delete_voucher()` API endpoint could attempt to delete vouchers that had already been redeemed (USED status).
+
+### Decision
+- **Weak JWT Secret Detection**: Added `warn_if_default_jwt_secret()` in `config.py` that checks for common weak patterns (e.g., `"secret"`, `"changeme"`, `"default"`, single-char, all-same-char, too-short) and low character diversity at startup.
+- **Service-Layer USED Check**: Added `ValueError` raise in `VoucherService.delete_voucher()` when voucher status is `USED`, with an API-level try/except wrapper in `admin_voucher.py` as defense-in-depth.
+- **Install Script Hardening**: Wrapped `int()` conversion of user port input in try/except blocks and replaced silent `check=False` subprocess calls with return-code inspection.
+
+### Consequences
+- Operators receive immediate startup warnings if JWT secret is weak.
+- Deleting redeemed vouchers is prevented at both the service and API layers.
+- Installer no longer crashes on non-numeric port input and reports failed service restarts instead of silently claiming success.
+
 ## [2026-07-21] Production Admin Credential Management & Auth Hardening
 
 ### Context

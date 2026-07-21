@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog.
 
+## [v1.0.9] - 2026-07-21
+
+### Added
+- **Weak JWT Secret Detection**: Startup warning in `config.py` for common weak JWT secrets and low-entropy patterns.
+- **Voucher USED Deletion Guard**: Service-layer `ValueError` in `voucher_service.py` when attempting to delete USED vouchers.
+- **Install Script Hardening**: Input validation for port numbers and return-code reporting for systemd service restarts in `install.py`.
+
+### Fixed
+- Final production certification audit completed. 38/38 tests passing.
+
 ## [v1.0.8] - 2026-07-21
 
 ### Added

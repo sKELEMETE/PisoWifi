@@ -74,6 +74,9 @@ class VoucherService:
         voucher = self.repository.get_by_id(voucher_id)
         if not voucher:
             return False
+        if voucher.status == VoucherStatus.USED:
+            logger.warning("Attempted to delete USED voucher id=%d — blocked by service layer", voucher_id)
+            raise ValueError("Cannot delete a used voucher. Deletion is restricted to preserve financial audit history.")
         self.repository.delete(voucher)
         logger.info("Voucher deleted: id=%d", voucher_id)
         return True

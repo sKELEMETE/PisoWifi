@@ -191,3 +191,12 @@ if not ADMIN_JWT_SECRET or len(ADMIN_JWT_SECRET) < 16:
 
 if IS_DEFAULT_CREDENTIALS:
     logger.critical("CRITICAL SECURITY WARNING: Default credentials (admin / admin123) are detected! Please update ADMIN_PASSWORD_HASH in .env immediately.")
+
+# Detect weak/predictable JWT secrets (common defaults or low-complexity patterns)
+_WEAK_JWT_PATTERNS = ["secret", "jwt_secret", "change_me", "password", "default", "key", "token", "admin"]
+_jwt_lower = ADMIN_JWT_SECRET.lower().strip()
+if any(pattern in _jwt_lower for pattern in _WEAK_JWT_PATTERNS) and len(set(ADMIN_JWT_SECRET)) < 10:
+    logger.warning(
+        "SECURITY WARNING: ADMIN_JWT_SECRET appears weak or predictable. "
+        "Generate a strong random secret using: openssl rand -hex 32"
+    )

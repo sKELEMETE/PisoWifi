@@ -41,6 +41,15 @@ This file tracks the upcoming phases and tasks required to transition PisoWiFi i
   - Add automated `.env` settings migration matching old/new variables.
   - Implement template version verification using MD5 hashes to protect local configuration customizations.
 
+## Production Certification & Security Hardening
+
+- [x] **Phase 4: Final Audit & Hardening**
+  - Add weak JWT secret detection warning at startup (config.py).
+  - Add service-layer USED status guard to VoucherService.delete_voucher().
+  - Add input validation guards to install.py (int() conversion, service restart checks).
+  - Run comprehensive production audit across installer, scripts, templates, frontend, and backend.
+  - Full remediation report: /tmp/pisowifi_output/remediation_report.txt
+
 ## Performance & Optimizations
 
 - [x] **Phase 1: Core Dashboard & Diagnostics Optimizations**

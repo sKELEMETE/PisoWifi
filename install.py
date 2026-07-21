@@ -162,10 +162,16 @@ def main():
 
         backend_port = input(f"Backend API Uvicorn Port [{args.backend_port}]: ").strip()
         if backend_port:
-            args.backend_port = int(backend_port)
+            try:
+                args.backend_port = int(backend_port)
+            except ValueError:
+                print(f"[Warning] Invalid port '{backend_port}', using default {args.backend_port}")
         portal_port = input(f"Nginx Web Port [{args.captive_portal_port}]: ").strip()
         if portal_port:
-            args.captive_portal_port = int(portal_port)
+            try:
+                args.captive_portal_port = int(portal_port)
+            except ValueError:
+                print(f"[Warning] Invalid port '{portal_port}', using default {args.captive_portal_port}")
 
         serial_port = input(f"Serial port for Coin Acceptor [{args.serial_port}]: ").strip()
         if serial_port:
@@ -277,9 +283,18 @@ ADMIN_JWT_SECRET={jwt_secret}
                 print("Reloading systemd daemons...")
                 subprocess.run(["systemctl", "daemon-reload"], check=False)
                 print("Restarting systemd backend services...")
-                subprocess.run(["systemctl", "restart", "pisowifi-backend"], check=False)
-                subprocess.run(["systemctl", "restart", "pisowifi-coin"], check=False)
-                print("[OK] Deployment configuration installed and services restarted successfully!")
+                ret_backend = subprocess.run(["systemctl", "restart", "pisowifi-backend"], check=False)
+                ret_coin = subprocess.run(["systemctl", "restart", "pisowifi-coin"], check=False)
+                all_ok = ret_backend.returncode == 0 and ret_coin.returncode == 0
+                if all_ok:
+                    print("[OK] Deployment configuration installed and services restarted successfully!")
+                else:
+                    failed = []
+                    if ret_backend.returncode != 0:
+                        failed.append("pisowifi-backend")
+                    if ret_coin.returncode != 0:
+                        failed.append("pisowifi-coin")
+                    print(f"[Warning] Services installed but restart failed for: {', '.join(failed)}")
         else:
             if not args.dry_run:
                 print("\nTo apply these configurations to your system, run as root:")

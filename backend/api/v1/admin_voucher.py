@@ -342,7 +342,10 @@ def delete_voucher(
             detail="Cannot delete a used voucher. Deletion is restricted to preserve financial audit history."
         )
     
-    service.delete_voucher(voucher_id)
+    try:
+        service.delete_voucher(voucher_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     logger.info("Voucher %d deleted by admin %s", voucher_id, current_admin)
     return success(message="Voucher deleted successfully")
 
