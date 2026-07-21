@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog.
 
+## [v1.0.8] - 2026-07-21
+
+### Added
+- **Apple 2026 Liquid Glass Voucher UI**: Redesigned captive portal voucher redemption (`VoucherForm.jsx`) and admin voucher management (`VoucherManagement.jsx`) with glass cards, sticky headers, stat grids, and scale-in modal dialogs.
+- **Admin Credentials Management**: Added `AdminCredentialsService` and `POST /api/admin/credentials` for atomic, secure username and password updates without manually editing `.env`.
+- **CLI Recovery Tool**: Created `manage.py` supporting `credentials check`, `set-username`, and `reset-password`.
+- **Automated Test Suite Expansion**: Expanded automated tests to 38 passing test cases.
+
+### Fixed
+- **Authentication Hardening**: Enforced bcrypt-only auth, fail-fast startup config validation, JWT `iat` claims, and `path="/"` cookie security.
+- **Dashboard 401 Interceptor**: Added Axios 401 interceptor in `adminClient.js` and refined `AdminDashboard.jsx` error messaging.
+
 ## [v1.0.7] - 2026-07-18
 
 ### Added

@@ -50,18 +50,18 @@ class CoinListener:
 
             logger.info("Raw packet received: %r", packet)
 
+            # Debounce raw serial line
+            if not self.debouncer.allow(packet):
+                logger.warning("Packet debounced (ignored): %r", packet)
+                continue
+
             value = validate_packet(packet)
             if value is None:
                 logger.warning("Packet validation failed for input: %r", packet)
                 continue
 
             logger.info("Packet validated successfully. Extracted value: %d PHP", value)
-
-            # Debounce
-            if not self.debouncer.allow(value):
-                logger.warning("Packet debounced (ignored): %d PHP", value)
-                continue
-
             logger.info("Coin pulse allowed. Dispatched value: %d PHP", value)
+
             success = self.process_coin_via_api(value)
             logger.info("REST API post status: %s", "Success" if success else "Failed")

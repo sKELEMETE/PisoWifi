@@ -1,8 +1,11 @@
+import logging
 import time
 import serial
 import config
 from coin_serial.device_detector import detect_serial_device
 from coin_serial.serial_reader import SerialReader, MockSerialReader
+
+logger = logging.getLogger(__name__)
 
 
 class SerialManager:
@@ -21,7 +24,7 @@ class SerialManager:
         if driver_name != "pyserial":
             self.reader = MockSerialReader()
             self.set_connected(True)
-            print("[Serial] Mock connected.")
+            logger.info("Mock serial connected.")
             return
 
         while self.reader is None:
@@ -30,7 +33,7 @@ class SerialManager:
 
                 if device is None:
                     self.set_connected(False)
-                    print("Coin device not found.")
+                    logger.info("Coin device not found.")
                     time.sleep(config.SERIAL_RECONNECT_INTERVAL)
                     continue
 
@@ -39,12 +42,11 @@ class SerialManager:
                 self.reader = SerialReader()
 
                 self.set_connected(True)
-                print("[Serial] Connected.")
-                print(f"Connected to {device}")
+                logger.info("Serial connected to %s.", device)
 
             except (serial.SerialException, OSError):
                 self.set_connected(False)
-                print("Waiting for coin acceptor...")
+                logger.info("Waiting for coin acceptor...")
                 time.sleep(config.SERIAL_RECONNECT_INTERVAL)
 
     def read(self):
@@ -56,7 +58,7 @@ class SerialManager:
 
         except (serial.SerialException, OSError):
             self.set_connected(False)
-            print("[Serial] Device disconnected.")
+            logger.warning("Serial device disconnected.")
 
             # Explicitly close the serial connection to prevent file descriptor leaks
             if self.reader and hasattr(self.reader, "serial") and self.reader.serial:

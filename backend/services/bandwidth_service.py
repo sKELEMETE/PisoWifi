@@ -104,7 +104,7 @@ class LinuxTcBandwidthDriver(BandwidthDriver):
                 abs_cmd[0] = config.PATH_IP
             elif abs_cmd[0] == "modprobe":
                 abs_cmd[0] = config.PATH_MODPROBE
-        result = subprocess.run(abs_cmd, capture_output=True, text=True)
+        result = subprocess.run(abs_cmd, capture_output=True, text=True, timeout=10)
         if check and result.returncode != 0:
             raise RuntimeError(f"tc error ({' '.join(abs_cmd)}): {result.stderr.strip()}")
         return result

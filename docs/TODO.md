@@ -18,6 +18,12 @@
 - [ ] Multi-AP roaming support (Using a central RADIUS or migrating from MAC tracking to Voucher/Token tracking).
 - [ ] Implement tiered bandwidth pricing (e.g. 5 Mbps vs 20 Mbps packages).
 
+## Completed (v1.0.8 / v1.13.0)
+- [x] Fix Admin Authentication failure by enabling `interpolate=False` in `load_dotenv()` ([config.py](file:///opt/pisowifi/backend/config.py)) and single-quoting `ADMIN_PASSWORD_HASH` in `.env`.
+- [x] Fix first-time client voucher redemption HTTP 404 error by utilizing `ClientRepository.get_or_create()` in `_process_voucher_redemption()` ([voucher.py](file:///opt/pisowifi/backend/api/v1/voucher.py)).
+- [x] Add explicit error logging in `verify_password()` ([auth.py](file:///opt/pisowifi/backend/utils/auth.py)) for malformed bcrypt salt exceptions.
+- [x] Build automated regression test suite in `test_voucher_hotfix.py` covering full voucher management lifecycle and redemption flows (36/36 tests passing).
+
 ## Completed (v1.0.7)
 - [x] Optimize admin dashboard response time from ~1000ms to under 5ms using dynamic diagnostics caching (`HealthCacheService`).
 - [x] Implement thread-safe serial port caching in candidate discovery, eliminating sequential port scan timeouts.

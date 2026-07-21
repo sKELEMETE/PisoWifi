@@ -2,6 +2,34 @@
 
 This document logs significant architectural design decisions made during the evolution of the PisoWiFi platform.
 
+## [2026-07-21] Production Admin Credential Management & Auth Hardening
+
+### Context
+Managing admin credentials previously required manually editing `.env` files and manually generating bcrypt hashes via external tools, which posed security risks of hash truncation, syntax corruption, and session stale states.
+
+### Decision
+- **Atomic File Updates & Dynamic Reloading**: Created `AdminCredentialsService` ([admin_credentials_service.py](file:///opt/pisowifi/backend/services/admin_credentials_service.py)) to handle validation, bcrypt generation, atomic file replacement (`.env.tmp` -> `fsync` -> `os.replace`), and in-memory config updates.
+- **Web UI & CLI Dual Interface**: Exposed `POST /api/admin/credentials` for Web UI changes (requiring current password verification) and built `manage.py` for CLI emergency recovery.
+- **Automatic Session Invalidation**: Credential changes automatically clear active session cookies (`admin_token`) and trigger a frontend redirect to `/admin/login`.
+
+## [2026-07-21] Voucher System Production Certification & Authentication Hardening
+
+### Context
+During production audits, two critical failure modes were identified in the voucher subsystem:
+1. Admin login returned HTTP 401 Unauthorized for valid credentials because `python-dotenv` interpolated unquoted `$` characters in bcrypt hashes (`ADMIN_PASSWORD_HASH`) as empty shell variables, truncating the salt and causing `bcrypt.checkpw()` to raise `ValueError: Invalid salt`.
+2. First-time client voucher redemption returned HTTP 404 Client Not Found because `_process_voucher_redemption()` used `get_by_mac()` instead of creating uninitialized client records.
+
+### Decision
+- **Environment Interpolation Override**: Passed `interpolate=False` to `load_dotenv()` in [config.py](file:///opt/pisowifi/backend/config.py) and enclosed `ADMIN_PASSWORD_HASH` in single quotes in `.env`.
+- **Automatic Client Registration**: Updated `_process_voucher_redemption()` in [voucher.py](file:///opt/pisowifi/backend/api/v1/voucher.py) to use `ClientRepository.get_or_create()`, aligning voucher redemption with coin insertion.
+- **Structured Password Error Logging**: Refactored `verify_password()` in [auth.py](file:///opt/pisowifi/backend/utils/auth.py) to log `ValueError` and syntax exceptions to the `"auth"` logger without exposing sensitive hash data.
+- **Financial Attribution Preservation**: Confirmed that linking voucher sales to `rate_id=4` (`coin_value=0`) is the correct architectural design to maintain zero cash revenue distortion in accounting statistics.
+
+### Consequences
+- Admin authentication functions with 100% reliability across environment reloads.
+- First-time portal users can redeem vouchers immediately without prior initialization steps.
+- All 36 backend test suite cases pass with full coverage for voucher CRUD, export, and redemption flows.
+
 ## [2026-07-16] Centralized Environment Configuration (Phase 1)
 
 ### Context

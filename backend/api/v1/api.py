@@ -2,7 +2,6 @@ from fastapi import APIRouter
 
 from api.v1.endpoints.health import router as health_router
 from api.v1.pricing import router as pricing_router
-from api.v1.voucher import router as voucher_router
 from api.v1.diagnostics import router as diagnostics_router
 
 api_router = APIRouter(
@@ -14,6 +13,5 @@ api_router.include_router(
     tags=["Health"]
 )
 
-api_router.include_router(voucher_router)
 api_router.include_router(pricing_router)
 api_router.include_router(diagnostics_router)

@@ -4,6 +4,16 @@ This document records the key technical and design decisions made for the PisoWi
 
 ---
 
+## 0. Voucher System Production Certification & Authentication Hardening (2026-07-21)
+*   **Context:** Admin login returned HTTP 401 due to bcrypt salt truncation during environment variable interpolation of `$` characters. First-time client voucher redemption returned HTTP 404 due to strict `get_by_mac()` checks.
+*   **Decision:**
+    - Passed `interpolate=False` to `load_dotenv()` in [config.py](file:///opt/pisowifi/backend/config.py) and single-quoted `ADMIN_PASSWORD_HASH` in `.env`.
+    - Switched client lookup in `_process_voucher_redemption()` ([voucher.py](file:///opt/pisowifi/backend/api/v1/voucher.py)) to `ClientRepository.get_or_create()`.
+    - Added explicit logger warnings in `verify_password()` ([auth.py](file:///opt/pisowifi/backend/utils/auth.py)) for `ValueError` hash exceptions.
+*   **Consequences:** Resolved all 4 diagnostic issues. 36/36 tests pass cleanly. 100% production certified.
+
+---
+
 ## 1. Pricing and Billing
 
 ### Decision: Accumulated Peso-Based Pricing

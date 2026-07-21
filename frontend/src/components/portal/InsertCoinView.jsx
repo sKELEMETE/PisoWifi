@@ -4,9 +4,11 @@ import useSessionStore from "../../store/sessionStore";
 import { activateCoin } from "../../api/coinApi";
 import soundManager from "../../utils/SoundManager";
 import CoinPopup from "./CoinPopup";
+import VoucherForm from "../voucher/VoucherForm";
 
 export default function InsertCoinView() {
     const [showPopup, setShowPopup] = useState(false);
+    const [showVoucher, setShowVoucher] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const client = useSessionStore((state) => state.client);
@@ -40,11 +42,7 @@ export default function InsertCoinView() {
                 🪙
             </div>
 
-            <h2>
-                Ready to Connect
-            </h2>
-
-
+            <h2>Ready to Connect</h2>
 
             {errorMsg && (
                 <div style={{
@@ -67,6 +65,18 @@ export default function InsertCoinView() {
                 {loading ? "Activating..." : macAddress ? "Insert Coin" : "Initializing..."}
             </Button>
 
+            <Button
+                variant="secondary"
+                onClick={() => setShowVoucher(!showVoucher)}
+                disabled={!macAddress}
+            >
+                {showVoucher ? "Hide Voucher Input" : "🎟️ Use Voucher"}
+            </Button>
+
+            {showVoucher && (
+                <VoucherForm macAddress={macAddress} />
+            )}
+
             {showPopup && macAddress && (
                 <CoinPopup 
                     macAddress={macAddress} 
@@ -76,5 +86,3 @@ export default function InsertCoinView() {
         </div>
     );
 }
-
-

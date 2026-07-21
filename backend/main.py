@@ -12,12 +12,35 @@ from api.v1.voucher import router as voucher_router
 from api.v1.coin import router as coin_router
 from api.v1.health import router as health_router
 from api.admin import router as admin_router
+from api.v1.admin_voucher import router as admin_voucher_router
 from scheduler.scheduler_service import SchedulerService
 from fastapi.staticfiles import StaticFiles
+from middleware.csrf import CSRFTokenMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import logging
+    from logging.handlers import RotatingFileHandler
+    import os
+
+    log_dir = config.LOG_DIRECTORY
+    os.makedirs(os.path.join(log_dir, "application"), exist_ok=True)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+
+    has_file_handler = any(isinstance(h, RotatingFileHandler) for h in root_logger.handlers)
+    if not has_file_handler:
+        app_handler = RotatingFileHandler(
+            os.path.join(log_dir, "application", "pisowifi.log"),
+            maxBytes=10*1024*1024,
+            backupCount=5,
+        )
+        app_handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        ))
+        root_logger.addHandler(app_handler)
+
     logger = logging.getLogger(__name__)
 
     # Set up root tc qdiscs for bandwidth shaping (idempotent)
@@ -124,11 +147,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-CSRF-Token"],
 )
+app.add_middleware(CSRFTokenMiddleware)
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -159,6 +183,7 @@ app.include_router(voucher_router)
 app.include_router(coin_router)
 app.include_router(client_router)
 app.include_router(admin_router)
+app.include_router(admin_voucher_router)
 app.mount("/api/sfx", StaticFiles(directory=config.SFX_DIRECTORY), name="sfx")
 register_exception_handlers(app)
 

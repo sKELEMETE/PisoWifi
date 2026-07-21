@@ -7,6 +7,7 @@ import platform
 import subprocess
 import logging
 from datetime import datetime, timedelta
+from utils.time_utils import get_utc_now
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
@@ -26,7 +27,7 @@ class AdminDashboardService:
     def get_sales_data(self) -> dict:
         try:
             from sqlalchemy import case
-            now = datetime.now()
+            now = get_utc_now()
             today_start = datetime.combine(now.date(), datetime.min.time())
             week_start = today_start - timedelta(days=now.weekday())
             month_start = datetime(now.year, now.month, 1)
@@ -64,7 +65,7 @@ class AdminDashboardService:
             rows = self.db.execute(stmt).all()
 
             active_users = []
-            now = datetime.now()
+            now = get_utc_now()
             for session, client in rows:
                 if session.status == SessionStatus.PAUSED:
                     remaining_seconds = session.remaining_minutes or 0
@@ -89,7 +90,7 @@ class AdminDashboardService:
         try:
             # Resolve systemctl path using standard search locations to survive systemd restricted path environments
             systemctl_path = shutil.which("systemctl", path="/usr/bin:/bin:/usr/sbin:/sbin") or "/usr/bin/systemctl"
-            res = subprocess.run([systemctl_path, "is-active", service_name], capture_output=True, text=True, check=False)
+            res = subprocess.run([systemctl_path, "is-active", service_name], capture_output=True, text=True, check=False, timeout=10)
             return res.stdout.strip() == "active"
         except Exception:
             return False
@@ -155,7 +156,7 @@ class AdminDashboardService:
             if config.FIREWALL_DRIVER.lower() == "nftables":
                 if os.path.exists(config.PATH_NFT):
                     cmd = [config.PATH_NFT, "list", "set", "inet", config.NFT_TABLE_NAME, config.NFT_SET_NAME]
-                    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                    res = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=10)
                     firewall_ok = (res.returncode == 0)
             else:
                 firewall_ok = True  # Mock
@@ -218,18 +219,8 @@ class AdminDashboardService:
         backend_active = False
         try:
             nginx_active = self._check_systemd("nginx")
-            # If systemd checks fail but Nginx is proxying web content, treat Nginx as active
-            if not nginx_active:
-                nginx_active = True
-            
             mariadb_active = self._check_systemd("mariadb") if config.DATABASE_TYPE.lower() == "mysql" else True
-            # Database queries succeeded, so MariaDB is functionally online
-            if db_connected:
-                mariadb_active = True
-            
             backend_active = self._check_systemd("pisowifi-backend")
-            # The backend API is serving this dashboard query, so it is online
-            backend_active = True
         except Exception:
             pass
 
@@ -272,7 +263,7 @@ class AdminDashboardService:
         # Admin configuration flags
         admin_mode = {
             "default_credentials_detected": config.IS_DEFAULT_CREDENTIALS,
-            "plaintext_password_mode": config.PLAINTEXT_MODE,
+            "password_hashing": "bcrypt",
             "rate_limiter_active": True,
             "admin_auth_mode": "cookie-jwt"
         }
@@ -304,7 +295,7 @@ class AdminDashboardService:
             "hostname": socket.gethostname() if hasattr(socket, "gethostname") else "localhost",
             "kernel_version": platform.release(),
             "python_version": platform.python_version(),
-            "current_server_time": datetime.now().isoformat(),
+            "current_server_time": get_utc_now().isoformat(),
             "timezone": time.tzname[0] if hasattr(time, "tzname") else "UTC",
             "lan_interface": config.LAN_INTERFACE_FALLBACK,
             "wan_interface": wan_interface,
@@ -391,28 +382,33 @@ class HealthCacheService:
             self._cache = data
 
 
+def _fetch_health_worker(app):
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        class MockRequest:
+            def __init__(self, app):
+                self.app = app
+        mock_request = MockRequest(app)
+        service = AdminDashboardService(db)
+        return service.get_system_health(mock_request)
+    finally:
+        db.close()
+
+
 def start_health_updater(app):
     async def update_loop():
         # Let startup migrations and recoveries settle
         await asyncio.sleep(5)
         while True:
             try:
-                from database import SessionLocal
-                db = SessionLocal()
-                
-                class MockRequest:
-                    def __init__(self, app):
-                        self.app = app
-                mock_request = MockRequest(app)
-                
-                service = AdminDashboardService(db)
                 loop = asyncio.get_running_loop()
-                data = await loop.run_in_executor(None, service.get_system_health, mock_request)
+                data = await loop.run_in_executor(None, _fetch_health_worker, app)
                 HealthCacheService().set_cached_health(data)
-                db.close()
             except Exception as e:
                 logger.error("Error in background health update loop: %s", e)
             await asyncio.sleep(30)
 
     task = asyncio.create_task(update_loop())
     app.state.health_updater_task = task
+

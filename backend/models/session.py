@@ -59,6 +59,12 @@ class Session(Base):
         nullable=False,
     )
 
+    remaining_seconds: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=0,
+    )
+
     start_time: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,

@@ -30,6 +30,7 @@ class StartupSequence:
         from repositories.session_repository import SessionRepository
         from services.session_service import SessionService
         from services.coin_service import CoinService
+        from services.firewall_service import FirewallService
 
         db = SessionLocal()
         try:
@@ -61,6 +62,9 @@ class StartupSequence:
                         db.query(PendingCoin).filter(PendingCoin.mac == mac).delete()
                         db.query(CoinReservation).filter(CoinReservation.mac == mac).delete()
                         db.commit()
+                        client = client_repository.get_by_mac(mac)
+                        if client and client.current_ip:
+                            FirewallService().authorize(client.current_ip)
                     except Exception as exc:
                         db.rollback()
                         logger.error("Startup Recovery: Failed to reconcile coins for %s: %s", mac, exc)

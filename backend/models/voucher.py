@@ -63,6 +63,16 @@ class Voucher(Base):
         nullable=True,
     )
 
+    created_by: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    notes: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),

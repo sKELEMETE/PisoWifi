@@ -2,6 +2,21 @@
 
 All notable changes to the PisoWiFi project will be documented in this file.
 
+## [1.13.0] - 2026-07-21
+
+### Added
+- **Apple 2026 Liquid Glass Voucher UI Redesign**: Redesigned captive portal voucher redemption (`VoucherForm.jsx`) with pill-shaped glass inputs, loading states, and accessible status banners. Fully overhauled admin voucher management (`VoucherManagement.jsx`) with Apple Liquid Glass stat cards, filter controls, sticky glass headers, pagination, and scale-animated glass modal dialogs.
+- **Admin Credential Management Workflow**: Added `AdminCredentialsService` ([admin_credentials_service.py](file:///opt/pisowifi/backend/services/admin_credentials_service.py)) and `POST /api/admin/credentials` endpoint supporting atomic, rollback-safe username and password updates without manually editing `.env`.
+- **CLI Credential Recovery Tool**: Created [manage.py](file:///opt/pisowifi/backend/manage.py) supporting `credentials check`, `set-username`, and `reset-password` operations.
+- **Admin Security Settings UI**: Built [AdminSettings.jsx](file:///opt/pisowifi/frontend/src/components/admin/AdminSettings.jsx) with Liquid Glass credential management forms that automatically invalidate active sessions and force re-login upon credential changes.
+- Created comprehensive regression test suite in `backend/tests/api/test_credentials_management.py` (38/38 tests passing).
+
+### Fixed
+- **Admin Authentication Hardening**: Enforced bcrypt-only runtime authentication in [auth.py](file:///opt/pisowifi/backend/utils/auth.py), removing plaintext fallback (`PLAINTEXT_MODE`).
+- **Fail-Fast Startup Validation**: Added startup validation in [config.py](file:///opt/pisowifi/backend/config.py) enforcing `ADMIN_USERNAME` (min 3 chars), valid bcrypt hash dry-run check, `ADMIN_JWT_SECRET` (min 16 chars), and positive token expiration. Refuses startup on invalid configurations.
+- **JWT & Cookie Hardening**: Injected `iat` (issued-at) claim into signed access tokens, enforced `algorithms=["HS256"]` and claim verification, and standardized explicit `path="/"` on auth cookies.
+- **Dashboard 401 Error Interceptor**: Added HTTP 401 response interceptor in [adminClient.js](file:///opt/pisowifi/frontend/src/api/adminClient.js) and refined [AdminDashboard.jsx](file:///opt/pisowifi/frontend/src/components/admin/AdminDashboard.jsx) to distinguish 401 unauthorized states from network connectivity failures.
+
 ## [1.12.0] - 2026-07-18
 
 ### Added

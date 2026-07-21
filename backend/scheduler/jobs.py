@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime, timedelta
+from utils.time_utils import get_utc_now
 from sqlalchemy import select, func
 from database import SessionLocal
-from models.session import Session as SessionModel
+from models.session import Session as SessionModel, SessionStatus
 from models.client import Client
 from services.firewall_service import FirewallService
 import config
@@ -24,8 +25,9 @@ def check_expired_reservations(db):
     from services.session_service import SessionService
     from services.coin_service import CoinService
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     expired = db.query(CoinReservation).filter(CoinReservation.expires_at <= now).all()
+    client_repo = ClientRepository(db)
     for res in expired:
         mac = res.mac
         logger.info("Scheduler: reservation timed out for %s. Finalizing...", mac)
@@ -35,7 +37,7 @@ def check_expired_reservations(db):
             if coins:
                 coin_service = CoinService(
                     rate_repository=RateRepository(db),
-                    client_repository=ClientRepository(db),
+                    client_repository=client_repo,
                     session_service=SessionService(SessionRepository(db)),
                     sale_repository=SalesRepository(db),
                 )
@@ -44,6 +46,15 @@ def check_expired_reservations(db):
             db.query(CoinReservation).filter(CoinReservation.mac == mac).delete()
             db.query(PendingCoin).filter(PendingCoin.mac == mac).delete()
             db.commit()
+
+            if coins:
+                client = client_repo.get_by_mac(mac)
+                if client and client.current_ip:
+                    try:
+                        FirewallService().authorize(client.current_ip)
+                    except Exception as auth_exc:
+                        logger.error("Scheduler: failed to authorize %s after coin processing: %s", mac, auth_exc)
+
             logger.info("Scheduler: slot successfully released for %s.", mac)
         except Exception as exc:
             db.rollback()
@@ -57,7 +68,7 @@ def expire_sessions():
     db = SessionLocal()
     try:
         firewall = FirewallService()
-        now = datetime.now()
+        now = get_utc_now()
         current_mono = time.monotonic()
 
         # Compensate for system clock jumps (e.g. NTP sync) to protect session remaining time
@@ -71,7 +82,7 @@ def expire_sessions():
                     from sqlalchemy import update
                     db.execute(
                         update(SessionModel)
-                        .where(SessionModel.status == "ACTIVE")
+                        .where(SessionModel.status == SessionStatus.ACTIVE)
                         .values(end_time=SessionModel.end_time + timedelta(seconds=jump_seconds))
                     )
                     db.commit()
@@ -86,37 +97,40 @@ def expire_sessions():
         expired_active = db.execute(
             select(SessionModel, Client.current_ip)
             .join(Client, Client.id == SessionModel.client_id)
-            .where(SessionModel.status == "ACTIVE")
+            .where(SessionModel.status == SessionStatus.ACTIVE)
             .where(SessionModel.end_time <= now)
         ).all()
 
         for session, client_ip in expired_active:
-            session.status = "EXPIRED"
+            session.status = SessionStatus.EXPIRED
             session.remaining_minutes = 0
+            session.remaining_seconds = 0
             if client_ip:
                 firewall.remove(client_ip)
 
         # Expire stale PAUSED sessions:
-        #   - sessions with zero remaining seconds (remaining_minutes column holds seconds while paused)
+        #   - sessions with zero remaining time (remaining_seconds <= 0 and remaining_minutes <= 0)
         #   - sessions paused longer than PAUSE_EXPIRATION_DAYS
         stale_cutoff = now - timedelta(days=config.PAUSE_EXPIRATION_DAYS)
         stale_paused = db.execute(
             select(SessionModel, Client.current_ip)
             .join(Client, Client.id == SessionModel.client_id)
-            .where(SessionModel.status == "PAUSED")
+            .where(SessionModel.status == SessionStatus.PAUSED)
             .where(
-                (SessionModel.remaining_minutes <= 0) |
+                ((SessionModel.remaining_seconds.is_(None) | (SessionModel.remaining_seconds <= 0)) & (SessionModel.remaining_minutes <= 0)) |
                 (SessionModel.paused_at <= stale_cutoff)
             )
         ).all()
 
         for session, client_ip in stale_paused:
-            session.status = "EXPIRED"
+            session.status = SessionStatus.EXPIRED
             session.remaining_minutes = 0
+            session.remaining_seconds = 0
             if client_ip:
                 firewall.remove(client_ip)
 
         db.commit()
+
 
         # Check and finalize expired coin acceptor reservations
         try:
@@ -132,7 +146,7 @@ def sync_firewall():
     import json
     import subprocess
     from database import SessionLocal
-    from models.session import Session as SessionModel
+    from models.session import Session as SessionModel, SessionStatus
     from models.client import Client
     from services.firewall_service import FirewallService
 
@@ -143,7 +157,7 @@ def sync_firewall():
         active_ips = db.execute(
             select(Client.current_ip)
             .join(SessionModel, SessionModel.client_id == Client.id)
-            .where(SessionModel.status == "ACTIVE")
+            .where(SessionModel.status == SessionStatus.ACTIVE)
         ).scalars().all()
         active_ips = {ip for ip in active_ips if ip}
 
@@ -151,7 +165,7 @@ def sync_firewall():
         nft_ips = set()
         for family, table, set_name in [("inet", config.NFT_TABLE_NAME, config.NFT_SET_NAME), ("ip", "nat", config.NFT_SET_NAME)]:
             cmd = [config.PATH_NFT, "-j", "list", "set", family, table, set_name]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
                 try:
                     data = json.loads(result.stdout)
@@ -184,4 +198,13 @@ def sync_firewall():
     finally:
         db.close()
 
-def backup(): pass
+def backup():
+    """Scheduled daily database backup job."""
+    from services.backup_service import BackupService
+    try:
+        logger.info("Scheduled job: Starting database backup...")
+        service = BackupService()
+        backup_path = service.run_backup()
+        logger.info("Scheduled job: Database backup completed successfully -> %s", backup_path)
+    except Exception as exc:
+        logger.error("Scheduled job: Database backup failed: %s", exc)

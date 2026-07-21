@@ -10,5 +10,16 @@ Environment="PATH={base_dir}/backend/venv/bin"
 ExecStart={base_dir}/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port {backend_port}
 Restart=always
 
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths={base_dir}
+ProtectHome=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictRealtime=true
+SystemCallArchitectures=native
+
 [Install]
 WantedBy=multi-user.target

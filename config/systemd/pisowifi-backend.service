@@ -10,5 +10,16 @@ Environment="PATH=/opt/pisowifi/backend/venv/bin"
 ExecStart=/opt/pisowifi/backend/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
 Restart=always
 
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/pisowifi
+ProtectHome=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictRealtime=true
+SystemCallArchitectures=native
+
 [Install]
 WantedBy=multi-user.target

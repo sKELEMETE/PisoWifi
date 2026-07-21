@@ -15,6 +15,7 @@ from services.session_service import SessionService
 from services.coin_service import CoinService
 from schemas.validation import MacRequest
 from utils.api_response import success, error
+from utils.time_utils import get_utc_now
 
 router = APIRouter(prefix="/api/v1/coin", tags=["Coin"])
 
@@ -26,19 +27,19 @@ RESERVATION_TIMEOUT = config.COIN_RESERVATION_TIMEOUT
 # ─────────────────────────────────────────────────────────────
 
 def _read_active_mac(db: Session) -> str | None:
-    now = datetime.utcnow()
+    now = get_utc_now()
     res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).first()
     return res.mac if res else None
 
 
 def _is_reserved(db: Session) -> bool:
-    now = datetime.utcnow()
+    now = get_utc_now()
     count = db.query(CoinReservation).filter(CoinReservation.expires_at > now).count()
     return count > 0
 
 
 def _remaining_reservation_seconds(db: Session) -> int:
-    now = datetime.utcnow()
+    now = get_utc_now()
     res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).first()
     if not res:
         return 0
@@ -106,10 +107,34 @@ def activate_slot(mac: str, db: Session = Depends(get_db)):
                 },
             )
 
-    # Enforce exclusive reservation
-    now = datetime.utcnow()
-    active_res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).first()
-    if active_res and active_res.mac != validated.mac:
+    try:
+        now = get_utc_now()
+        # Acquire row-level lock on existing coin reservations to serialize concurrent activations
+        reservations = db.query(CoinReservation).with_for_update().all()
+        active_res = next((r for r in reservations if r.expires_at > now), None)
+
+        if active_res and active_res.mac != validated.mac:
+            db.rollback()
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "message": "Another customer is currently inserting coins. Please wait.",
+                },
+            )
+
+        expires_at = now + timedelta(seconds=RESERVATION_TIMEOUT)
+        if active_res:
+            active_res.expires_at = expires_at
+        else:
+            db.query(CoinReservation).delete()
+            res = CoinReservation(mac=validated.mac, reserved_at=now, expires_at=expires_at)
+            db.add(res)
+
+        db.query(PendingCoin).filter(PendingCoin.mac == validated.mac).delete()
+        db.commit()
+    except Exception as exc:
+        db.rollback()
         return JSONResponse(
             status_code=409,
             content={
@@ -117,19 +142,6 @@ def activate_slot(mac: str, db: Session = Depends(get_db)):
                 "message": "Another customer is currently inserting coins. Please wait.",
             },
         )
-
-    # Write reservation
-    expires_at = now + timedelta(seconds=RESERVATION_TIMEOUT)
-    if active_res:
-        active_res.expires_at = expires_at
-    else:
-        db.query(CoinReservation).filter(CoinReservation.mac == validated.mac).delete()
-        res = CoinReservation(mac=validated.mac, reserved_at=now, expires_at=expires_at)
-        db.add(res)
-
-    # Reset counters for this session
-    db.query(PendingCoin).filter(PendingCoin.mac == validated.mac).delete()
-    db.commit()
 
     return success({"status": "active", "remaining_seconds": RESERVATION_TIMEOUT})
 
@@ -144,8 +156,8 @@ def release_slot(mac: str, db: Session = Depends(get_db)):
 
     try:
         # Only the owner may release
-        now = datetime.utcnow()
-        active_res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).first()
+        now = get_utc_now()
+        active_res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).with_for_update().first()
         if not active_res or active_res.mac != validated.mac:
             return error("Slot not reserved by this MAC")
 
@@ -169,14 +181,15 @@ def release_slot(mac: str, db: Session = Depends(get_db)):
             )
             coin_service.process_coins_bulk(validated.mac, coins, authorize=False, commit=False)
 
+        if coins and client and client.current_ip:
+            from services.firewall_service import FirewallService
+            FirewallService().authorize(client.current_ip)
+
         # Clean up reservation database records
         db.query(CoinReservation).filter(CoinReservation.mac == validated.mac).delete()
         db.query(PendingCoin).filter(PendingCoin.mac == validated.mac).delete()
         db.commit()
 
-        if coins and client and client.current_ip:
-            from services.firewall_service import FirewallService
-            FirewallService().authorize(client.current_ip)
 
     except Exception as e:
         db.rollback()
@@ -185,14 +198,15 @@ def release_slot(mac: str, db: Session = Depends(get_db)):
     return success({"status": "released"})
 
 
+
 # ─────────────────────────────────────────────────────────────
 # POST /insert   (called by hardware serial listener)
 # ─────────────────────────────────────────────────────────────
 
 @router.post("/insert")
 def insert_coin(value: int, db: Session = Depends(get_db)):
-    now = datetime.utcnow()
-    active_res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).first()
+    now = get_utc_now()
+    active_res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).with_for_update().first()
     if not active_res:
         return error("No active slot reservation found.")
 
@@ -213,27 +227,28 @@ def insert_coin(value: int, db: Session = Depends(get_db)):
 
 
 # ─────────────────────────────────────────────────────────────
-# POST /test/{mac}/{value}   (development / hardware-less testing)
+# POST /test/{mac}/{value}   (development / hardware-less testing ONLY)
 # ─────────────────────────────────────────────────────────────
 
-@router.post("/test/{mac}/{value}")
-def test_coin(mac: str, value: int, db: Session = Depends(get_db)):
-    validated = MacRequest(mac=mac)
-    now = datetime.utcnow()
-    active_res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).first()
-    if not active_res or active_res.mac != validated.mac:
-        return error("Slot not active or reserved by another MAC")
+if config.DEBUG or config.ENVIRONMENT in ("development", "dev", "test"):
+    @router.post("/test/{mac}/{value}")
+    def test_coin(mac: str, value: int, db: Session = Depends(get_db)):
+        validated = MacRequest(mac=mac)
+        now = get_utc_now()
+        active_res = db.query(CoinReservation).filter(CoinReservation.expires_at > now).with_for_update().first()
+        if not active_res or active_res.mac != validated.mac:
+            return error("Slot not active or reserved by another MAC")
 
-    # Insert pending coin record
-    coin = PendingCoin(mac=validated.mac, amount=value, created_at=now)
-    db.add(coin)
+        # Insert pending coin record
+        coin = PendingCoin(mac=validated.mac, amount=value, created_at=now)
+        db.add(coin)
 
-    # Extend reservation window
-    active_res.expires_at = now + timedelta(seconds=RESERVATION_TIMEOUT)
-    db.commit()
+        # Extend reservation window
+        active_res.expires_at = now + timedelta(seconds=RESERVATION_TIMEOUT)
+        db.commit()
 
-    return success({
-        "coin": value,
-        "status": "accumulated",
-        "remaining_seconds": max(0, int((active_res.expires_at - now).total_seconds())),
-    })
+        return success({
+            "coin": value,
+            "status": "accumulated",
+            "remaining_seconds": max(0, int((active_res.expires_at - now).total_seconds())),
+        })

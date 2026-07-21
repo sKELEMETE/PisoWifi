@@ -31,6 +31,7 @@ class NftablesFirewallDriver(FirewallDriver):
             command,
             capture_output=True,
             text=True,
+            timeout=10,
         )
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip())
@@ -65,15 +66,9 @@ class NftablesFirewallDriver(FirewallDriver):
         ]
 
         for cmd in commands:
-            logger.info(cmd)
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-            )
-            logger.info("Return=%s", result.returncode)
-            logger.info("stdout=%s", result.stdout)
-            logger.info("stderr=%s", result.stderr)
+            logger.info("Executing firewall command: %s", cmd)
+            self._run(cmd)
+
 
     def remove(self, ip: str) -> None:
         logger.info("Removing %s (nftables)", ip)

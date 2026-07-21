@@ -49,3 +49,19 @@ This file tracks the upcoming phases and tasks required to transition PisoWiFi i
   - Optimize database aggregations into single conditional `SUM(CASE WHEN...)` statement.
   - Implement rolling CPU calculation from `/proc/stat` to show actual CPU utilization delta.
 
+## Voucher System Certification & Security Hardening
+
+- [x] **Phase 1: Admin Auth & Interpolation Hardening**
+  - Prevent environment variable `$` string interpolation in `load_dotenv()` (`interpolate=False`).
+  - Update `.env` `ADMIN_PASSWORD_HASH` with single-quoted valid 60-character bcrypt hash for `admin123`.
+  - Add explicit exception logging to `verify_password()` in [auth.py](file:///opt/pisowifi/backend/utils/auth.py).
+- [x] **Phase 2: Automatic Client Registration & Test Suite**
+  - Update `_process_voucher_redemption()` in [voucher.py](file:///opt/pisowifi/backend/api/v1/voucher.py) to use `ClientRepository.get_or_create()`.
+  - Build automated test suite in [test_voucher_hotfix.py](file:///opt/pisowifi/backend/tests/api/test_voucher_hotfix.py) (36/36 tests passing).
+- [x] **Phase 3: Production Admin Credential Management & Liquid Glass UI**
+  - Implement `AdminCredentialsService` ([admin_credentials_service.py](file:///opt/pisowifi/backend/services/admin_credentials_service.py)) and `POST /api/admin/credentials` for atomic, rollback-safe `.env` credential updates.
+  - Build CLI credential recovery tool ([manage.py](file:///opt/pisowifi/backend/manage.py)) supporting `check`, `set-username`, and `reset-password`.
+  - Overhaul Voucher UI into Apple 2026 Liquid Glass design language and mount `AdminSettings.jsx` security tab in Dashboard.
+  - Expand test suite to 38 passing tests ([test_credentials_management.py](file:///opt/pisowifi/backend/tests/api/test_credentials_management.py)).
+
+

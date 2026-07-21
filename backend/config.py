@@ -4,14 +4,18 @@ import shutil
 
 # Load system-wide environment configuration
 if os.path.exists("/opt/pisowifi/.env"):
-    load_dotenv("/opt/pisowifi/.env")
+    load_dotenv("/opt/pisowifi/.env", interpolate=False)
 
 # Load project-local backend environment configuration
 local_env = os.path.join(os.path.dirname(__file__), ".env")
 if os.path.exists(local_env):
-    load_dotenv(local_env)
+    load_dotenv(local_env, interpolate=False, override=True)
+
+ENVIRONMENT = os.getenv("ENVIRONMENT", os.getenv("PISOWIFI_ENVIRONMENT", "production")).lower()
+DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
 
 DATABASE_HOST = os.getenv("DATABASE_HOST", "localhost")
+
 DATABASE_PORT = os.getenv("DATABASE_PORT", "3306")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "pisowifi")
 DATABASE_USER = os.getenv("DATABASE_USER", "pisowifi")
@@ -39,7 +43,8 @@ SERIAL_PORT = os.getenv("SERIAL_PORT")
 SERIAL_BAUDRATE = int(os.getenv("SERIAL_BAUDRATE", "9600"))
 SERIAL_TIMEOUT = int(os.getenv("SERIAL_TIMEOUT", "1"))
 SERIAL_RECONNECT_INTERVAL = int(os.getenv("SERIAL_RECONNECT_INTERVAL", "5"))
-SERIAL_DEBOUNCE_MS = int(os.getenv("SERIAL_DEBOUNCE_MS", "300"))
+SERIAL_DEBOUNCE_MS = int(os.getenv("SERIAL_DEBOUNCE_MS", "50"))
+
 SCHEDULER_INTERVAL = int(os.getenv("SCHEDULER_INTERVAL", "1"))
 BACKUP_TIME = os.getenv("BACKUP_TIME", "03:00")
 
@@ -68,6 +73,13 @@ BANDWIDTH_DRIVER = os.getenv("PISOWIFI_BANDWIDTH_DRIVER", "linux_tc")
 NETWORK_PROVIDER = os.getenv("PISOWIFI_NETWORK_PROVIDER", "local_arp")
 SERIAL_DRIVER = os.getenv("PISOWIFI_SERIAL_DRIVER", "pyserial")
 BACKEND_PORT = int(os.getenv("PISOWIFI_BACKEND_PORT", "8000"))
+
+CORS_ORIGINS = [
+    origin.strip() for origin in os.getenv(
+        "PISOWIFI_CORS_ORIGINS",
+        f"http://10.0.0.1,http://localhost,http://localhost:5173,http://127.0.0.1,http://{GATEWAY_IP}"
+    ).split(",") if origin.strip() and origin.strip() != "*"
+]
 
 COIN_RESERVATION_TIMEOUT = int(os.getenv("COIN_RESERVATION_TIMEOUT", "30"))
 
@@ -111,45 +123,71 @@ def get_minutes_and_pause_eligibility(amount: int) -> tuple[int, bool]:
         pause_allowed = pause_allowed and rem_pause
     return total_mins, pause_allowed
 
-# Admin Panel Settings
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
-if not ADMIN_USERNAME or ADMIN_USERNAME.strip() == "":
-    raise RuntimeError("Configuration Error: ADMIN_USERNAME is missing or empty in the environment (.env).")
+# Admin Panel Settings & Fail-Fast Startup Validation
+import logging
+logger = logging.getLogger("admin_config")
 
-admin_pwd_env = os.getenv("ADMIN_PASSWORD")
-admin_pwd_hash_env = os.getenv("ADMIN_PASSWORD_HASH")
-if (admin_pwd_env is None or admin_pwd_env.strip() == "") and (admin_pwd_hash_env is None or admin_pwd_hash_env.strip() == ""):
-    raise RuntimeError("Configuration Error: Neither ADMIN_PASSWORD nor ADMIN_PASSWORD_HASH is configured in the environment (.env).")
+def reload_admin_config():
+    global ADMIN_USERNAME, ADMIN_PASSWORD_HASH, ADMIN_JWT_SECRET, ADMIN_TOKEN_EXPIRE_HOURS, IS_DEFAULT_CREDENTIALS
+    if os.path.exists("/opt/pisowifi/.env"):
+        load_dotenv("/opt/pisowifi/.env", interpolate=False, override=True)
+    local_env = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(local_env):
+        load_dotenv(local_env, interpolate=False, override=True)
 
-ADMIN_PASSWORD = admin_pwd_env
-ADMIN_PASSWORD_HASH = admin_pwd_hash_env
+    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin").strip()
+    ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "").strip().strip("'\"")
+    ADMIN_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET", "").strip().strip("'\"")
 
-ADMIN_JWT_SECRET = os.getenv("ADMIN_JWT_SECRET")
-if not ADMIN_JWT_SECRET or ADMIN_JWT_SECRET.strip() == "":
-    raise RuntimeError("Configuration Error: ADMIN_JWT_SECRET is missing or empty in the environment (.env).")
-ADMIN_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_TOKEN_EXPIRE_HOURS", "2"))
+    try:
+        ADMIN_TOKEN_EXPIRE_HOURS = int(os.getenv("ADMIN_TOKEN_EXPIRE_HOURS", "2"))
+    except ValueError:
+        ADMIN_TOKEN_EXPIRE_HOURS = 2
 
-# Check credential security modes
-PLAINTEXT_MODE = (ADMIN_PASSWORD_HASH is None or ADMIN_PASSWORD_HASH.strip() == "") and (ADMIN_PASSWORD is not None and ADMIN_PASSWORD.strip() != "")
-
-is_default_hash = False
-if ADMIN_PASSWORD_HASH:
+    is_default_hash = False
     try:
         import bcrypt
         is_default_hash = bcrypt.checkpw("admin123".encode("utf-8"), ADMIN_PASSWORD_HASH.encode("utf-8"))
     except Exception:
         pass
+    IS_DEFAULT_CREDENTIALS = (ADMIN_USERNAME == "admin") and is_default_hash
 
-IS_DEFAULT_CREDENTIALS = (ADMIN_USERNAME == "admin") and (
-    (PLAINTEXT_MODE and ADMIN_PASSWORD == "admin123") or is_default_hash
-)
+ADMIN_USERNAME = ""
+ADMIN_PASSWORD_HASH = ""
+ADMIN_JWT_SECRET = ""
+ADMIN_TOKEN_EXPIRE_HOURS = 2
+IS_DEFAULT_CREDENTIALS = False
 
-# Startup logging checks (will be logged on startup)
-import logging
-logger = logging.getLogger("admin_config")
+reload_admin_config()
+
+if not ADMIN_USERNAME or len(ADMIN_USERNAME) < 3:
+    msg = "Configuration Error: ADMIN_USERNAME is missing, empty, or too short (minimum 3 characters)."
+    logger.critical(msg)
+    raise RuntimeError(msg)
+
+if not ADMIN_PASSWORD_HASH:
+    msg = "Configuration Error: ADMIN_PASSWORD_HASH is missing or empty in environment (.env). Bcrypt hash authentication is required for production."
+    logger.critical(msg)
+    raise RuntimeError(msg)
+
+# Validate bcrypt hash structure and salt format at startup
+try:
+    import bcrypt
+    # Perform a dry-run validation check against the configured hash
+    bcrypt.checkpw("dry_run_validation".encode("utf-8"), ADMIN_PASSWORD_HASH.encode("utf-8"))
+except ValueError as exc:
+    msg = f"Configuration Error: ADMIN_PASSWORD_HASH is malformed or contains an invalid salt structure: {exc}"
+    logger.critical(msg)
+    raise RuntimeError(msg)
+except Exception as exc:
+    msg = f"Configuration Error: ADMIN_PASSWORD_HASH validation failed: {exc}"
+    logger.critical(msg)
+    raise RuntimeError(msg)
+
+if not ADMIN_JWT_SECRET or len(ADMIN_JWT_SECRET) < 16:
+    msg = "Configuration Error: ADMIN_JWT_SECRET is missing, empty, or insecure (minimum 16 characters required)."
+    logger.critical(msg)
+    raise RuntimeError(msg)
 
 if IS_DEFAULT_CREDENTIALS:
-    logger.critical("CRITICAL SECURITY WARNING: Default credentials (admin / admin123) are detected! Please change them in .env immediately.")
-
-if PLAINTEXT_MODE:
-    logger.warning("SECURITY WARNING: Admin password is stored in plaintext (.env variable ADMIN_PASSWORD). Please migrate to ADMIN_PASSWORD_HASH using bcrypt for production hardening.")
+    logger.critical("CRITICAL SECURITY WARNING: Default credentials (admin / admin123) are detected! Please update ADMIN_PASSWORD_HASH in .env immediately.")

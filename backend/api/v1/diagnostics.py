@@ -79,7 +79,7 @@ def get_diagnostics(db: Session = Depends(get_db)):
         },
         "admin_security": {
             "default_credentials_detected": config.IS_DEFAULT_CREDENTIALS,
-            "plaintext_password_mode": config.PLAINTEXT_MODE,
+            "password_hashing": "bcrypt",
             "rate_limiter_active": True,
             "admin_auth_mode": "cookie-jwt"
         }

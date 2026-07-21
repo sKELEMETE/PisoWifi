@@ -34,6 +34,8 @@ def migrate_env(base_dir: str) -> None:
         "PISOWIFI_GATEWAY_IP": "10.0.0.1",
         "PISOWIFI_SUBNET_CIDR": "10.0.0.0/24",
         "PISOWIFI_LAN_INTERFACE_FALLBACK": "enxc817f552a5c6",
+        "ADMIN_USERNAME": "admin",
+        "ADMIN_PASSWORD_HASH": "'$2b$12$Nq9Teyk.wyl1Fj/4Jc.6s.x9JkIvhVbN16yB7PqWvH9Z92O6Lz27C'",
         "ADMIN_JWT_SECRET": secrets.token_hex(16),
     }
 

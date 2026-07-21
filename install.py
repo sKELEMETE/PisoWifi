@@ -196,6 +196,8 @@ def main():
 
     import secrets
     jwt_secret = secrets.token_hex(16)
+    import bcrypt
+    default_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt(12)).decode("utf-8")
     # 1. Generate local environment content (include default admin credentials)
     env_content = f"""# PisoWiFi Environment Settings
 PISOWIFI_BASE_DIR={args.base_dir}
@@ -210,7 +212,7 @@ CAPTIVE_PORTAL_PORT={args.captive_portal_port}
 
 # Admin Credentials Hardening
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD_HASH='{default_hash}'
 ADMIN_JWT_SECRET={jwt_secret}
 """
 

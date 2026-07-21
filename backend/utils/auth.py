@@ -1,44 +1,84 @@
+import secrets
+
 import jwt
 import bcrypt
+import logging
 from datetime import datetime, timedelta, timezone
 from fastapi import Request, HTTPException, status
 import config
 
+logger = logging.getLogger("auth")
+
+
 def verify_password(plain_password: str) -> bool:
-    if config.PLAINTEXT_MODE:
-        return plain_password == config.ADMIN_PASSWORD
-    
-    if not config.ADMIN_PASSWORD_HASH:
-        return False
-    try:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), config.ADMIN_PASSWORD_HASH.encode("utf-8"))
-    except Exception:
+    """Strict bcrypt password verification."""
+    if not plain_password or not isinstance(plain_password, str):
         return False
 
+    if not config.ADMIN_PASSWORD_HASH:
+        logger.error("Password verification aborted: ADMIN_PASSWORD_HASH configuration is missing.")
+        return False
+
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), config.ADMIN_PASSWORD_HASH.encode("utf-8"))
+    except ValueError as exc:
+        logger.error("Bcrypt configuration/hash validation failed: %s", exc)
+        return False
+    except Exception as exc:
+        logger.error("Unexpected failure during password verification: %s", exc)
+        return False
+
+
 def create_access_token(username: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(hours=config.ADMIN_TOKEN_EXPIRE_HOURS)
-    to_encode = {"sub": username, "exp": expire}
+    """Generate a signed JWT access token with sub, iat, and exp claims."""
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(hours=config.ADMIN_TOKEN_EXPIRE_HOURS)
+    to_encode = {
+        "sub": username,
+        "iat": now,
+        "exp": expire,
+    }
     encoded_jwt = jwt.encode(to_encode, config.ADMIN_JWT_SECRET, algorithm="HS256")
     return encoded_jwt
 
+
 def verify_access_token(token: str) -> str | None:
-    if not token:
+    """Strictly verify JWT signature, expiration, issued-at, and subject claims."""
+    if not token or not isinstance(token, str) or token.strip() == "":
         return None
     try:
-        # Strictly verify signature, expiration, and algorithm to protect against algorithm confusion attacks
-        payload = jwt.decode(token, config.ADMIN_JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(
+            token,
+            config.ADMIN_JWT_SECRET,
+            algorithms=["HS256"],
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_iat": True,
+            },
+        )
         username: str = payload.get("sub")
-        if username is None:
+        if not username or username != config.ADMIN_USERNAME:
+            logger.warning("JWT subject validation failed: Subject '%s' does not match configured admin.", username)
             return None
         return username
     except jwt.ExpiredSignatureError:
+        logger.info("JWT access token validation failed: Token signature expired.")
         return None
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as exc:
+        logger.warning("JWT access token validation failed: Invalid token format or signature: %s", exc)
         return None
-    except Exception:
+    except Exception as exc:
+        logger.error("Unexpected error during JWT validation: %s", exc)
         return None
 
+
+def generate_csrf_token() -> str:
+    return secrets.token_hex(32)
+
+
 def get_current_admin(request: Request) -> str:
+    """FastAPI Dependency enforcing admin cookie authentication."""
     token = request.cookies.get("admin_token")
     if not token or token.strip() == "":
         raise HTTPException(

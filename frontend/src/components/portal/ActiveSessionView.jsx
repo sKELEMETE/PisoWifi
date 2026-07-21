@@ -8,6 +8,7 @@ import usePortalStore from "../../store/portalStore";
 import useSessionStore from "../../store/sessionStore";
 import soundManager from "../../utils/SoundManager";
 import CoinPopup from "./CoinPopup";
+import VoucherForm from "../voucher/VoucherForm";
 
 export default function ActiveSessionView({
     session,
@@ -18,6 +19,7 @@ export default function ActiveSessionView({
     const setSession = useSessionStore(state => state.setSession);
     const setPortalState = usePortalStore(state => state.setPortalState);
     const [showPopup, setShowPopup] = useState(false);
+    const [showVoucher, setShowVoucher] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const macAddress = session?.mac_address;
@@ -100,6 +102,18 @@ export default function ActiveSessionView({
             >
                 {loading ? "Activating..." : "Insert Coin"}
             </Button>
+
+            <Button
+                variant="secondary"
+                onClick={() => setShowVoucher(!showVoucher)}
+                disabled={!macAddress}
+            >
+                {showVoucher ? "Hide Voucher Input" : "🎟️ Use Voucher"}
+            </Button>
+
+            {showVoucher && (
+                <VoucherForm macAddress={macAddress} />
+            )}
 
             {session?.pause_allowed !== false && (
                 <Button

@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import useAdminStore from "../../store/adminStore";
 import adminApi from "../../api/adminClient";
+import VoucherManagement from "./VoucherManagement";
+import AdminSettings from "./AdminSettings";
 import "../../styles/admin.css";
 
 export default function AdminDashboard() {
@@ -27,7 +29,11 @@ export default function AdminDashboard() {
             }
         } catch (err) {
             console.error("Dashboard fetch failed:", err);
-            setFetchError("Failed to connect to backend API");
+            if (err.response?.status === 401) {
+                setFetchError("Session expired or unauthorized. Redirecting to login...");
+            } else {
+                setFetchError("Failed to connect to backend API");
+            }
         }
     }, []);
 
@@ -211,28 +217,6 @@ export default function AdminDashboard() {
                     </div>
                 )}
 
-                {data && data.system_health.admin_mode?.plaintext_password_mode && !data.system_health.admin_mode?.default_credentials_detected && (
-                    <div style={{
-                        color: "#f59e0b",
-                        background: "rgba(245, 158, 11, 0.04)",
-                        border: "1px solid rgba(245, 158, 11, 0.3)",
-                        borderRadius: "12px",
-                        padding: "16px",
-                        fontSize: "0.9rem",
-                        marginBottom: "20px",
-                        textAlign: "left",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "6px"
-                    }}>
-                        <strong style={{ display: "flex", alignItems: "center", gap: "8px", color: "#f59e0b" }}>
-                            ⚠️ Security Recommendation: Plaintext Password Mode Active
-                        </strong>
-                        <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-                            Your administration credentials are currently stored in plaintext. We recommend migrating to <code>ADMIN_PASSWORD_HASH</code> using bcrypt. Generate a bcrypt hash and configure it in your <code>.env</code> to disable plaintext mode.
-                        </span>
-                    </div>
-                )}
 
                 {!data ? (
                     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", flex: 1 }}>
@@ -462,6 +446,8 @@ export default function AdminDashboard() {
                                 </table>
                             )}
                         </div>
+                        <VoucherManagement />
+                        <AdminSettings currentUsername={username} />
                     </>
                 )}
             </div>

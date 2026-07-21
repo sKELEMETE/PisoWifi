@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
 from database import get_db
-from models.session import Session as SessionModel
+from models.session import Session as SessionModel, SessionStatus
 from utils.api_response import success
 
 router = APIRouter(prefix="/api/v1/health", tags=["Health"])
@@ -20,11 +20,11 @@ def health(db: Session = Depends(get_db)):
 
     try:
         active_count = db.execute(
-            select(func.count()).select_from(SessionModel).where(SessionModel.status == "ACTIVE")
+            select(func.count()).select_from(SessionModel).where(SessionModel.status == SessionStatus.ACTIVE)
         ).scalar_one()
 
         paused_count = db.execute(
-            select(func.count()).select_from(SessionModel).where(SessionModel.status == "PAUSED")
+            select(func.count()).select_from(SessionModel).where(SessionModel.status == SessionStatus.PAUSED)
         ).scalar_one()
 
         status["database"] = True

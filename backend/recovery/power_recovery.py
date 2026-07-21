@@ -1,5 +1,7 @@
 import logging
 from datetime import datetime
+from utils.time_utils import get_utc_now
+from models.session import SessionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ class PowerRecovery:
                 # If system booted less than 120 seconds ago, it is a hardware reboot/power cycle
                 if uptime_seconds < 120:
                     is_system_reboot = True
-        except Exception as exc:
+        except (FileNotFoundError, PermissionError, ValueError, OSError) as exc:
             logger.warning("Could not read system uptime, defaulting to False: %s", exc)
 
         if not is_system_reboot:
@@ -39,13 +41,16 @@ class PowerRecovery:
         sessions = self.session_repository.get_active_sessions()
 
         recovered = 0
-        now = datetime.now()
+        now = get_utc_now()
 
         for session in sessions:
-            session.status = "PAUSED"
+            session.status = SessionStatus.PAUSED
             session.paused_at = now
-            session.remaining_minutes = max(0, int((session.end_time - now).total_seconds()))
+            rem_sec = max(0, int((session.end_time - now).total_seconds()))
+            session.remaining_seconds = rem_sec
+            session.remaining_minutes = rem_sec // 60
             recovered += 1
+
 
         self.db.commit()
 

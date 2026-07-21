@@ -1,6 +1,8 @@
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta
-from models.session import Session
+from utils.time_utils import get_utc_now
+from models.session import Session, SessionStatus
 from repositories.base_repository import BaseRepository
 
 class SessionRepository(BaseRepository):
@@ -15,7 +17,7 @@ class SessionRepository(BaseRepository):
         return self.db.get(Session, session_id)
 
     def get_expired_sessions(self):
-        stmt = select(Session).where(Session.status == "EXPIRED")
+        stmt = select(Session).where(Session.status == SessionStatus.EXPIRED)
         return self.db.execute(stmt).scalars().all()
 
     def update(self, session: Session):
@@ -26,7 +28,8 @@ class SessionRepository(BaseRepository):
     def get_active_sessions(self):
         stmt = (
             select(Session)
-            .where(Session.status == "ACTIVE")
+            .options(joinedload(Session.client))
+            .where(Session.status == SessionStatus.ACTIVE)
         )
 
         return self.db.execute(stmt).scalars().all()
@@ -34,35 +37,39 @@ class SessionRepository(BaseRepository):
     def get_paused_sessions(self):
         stmt = (
             select(Session)
-            .where(Session.status == "PAUSED")
+            .where(Session.status == SessionStatus.PAUSED)
         )
 
         return self.db.execute(stmt).scalars().all()
 
-    def get_active_session_by_client_id(self, client_id: int):
+    def get_active_session_by_client_id(self, client_id: int, for_update: bool = False):
         stmt = (
             select(Session)
             .where(Session.client_id == client_id)
-            .where(Session.status == "ACTIVE")
+            .where(Session.status == SessionStatus.ACTIVE)
             .order_by(Session.id.desc())
         )
+        if for_update:
+            stmt = stmt.with_for_update()
         return self.db.execute(stmt).scalars().first()
 
 
-    def get_paused_session_by_client_id(self, client_id: int):
+    def get_paused_session_by_client_id(self, client_id: int, for_update: bool = False):
         stmt = (
             select(Session)
             .where(Session.client_id == client_id)
-            .where(Session.status == "PAUSED")
+            .where(Session.status == SessionStatus.PAUSED)
             .order_by(Session.id.desc())
         )
+        if for_update:
+            stmt = stmt.with_for_update()
         return self.db.execute(stmt).scalars().first()
 
     def count_active_sessions(self) -> int:
         """Return count of ACTIVE sessions without ORM hydration."""
         from sqlalchemy import func
         result = self.db.execute(
-            select(func.count()).select_from(Session).where(Session.status == "ACTIVE")
+            select(func.count()).select_from(Session).where(Session.status == SessionStatus.ACTIVE)
         )
         return result.scalar_one()
 
@@ -74,14 +81,15 @@ class SessionRepository(BaseRepository):
         pause_allowed: bool = True,
         commit: bool = True,
     ):
-        now = datetime.now()
+        now = get_utc_now()
 
         session = Session(
             client_id=client_id,
             rate_id=rate_id,
             purchased_minutes=minutes,
             remaining_minutes=minutes,
-            status="ACTIVE",
+            remaining_seconds=0,
+            status=SessionStatus.ACTIVE,
             start_time=now,
             end_time=now + timedelta(minutes=minutes),
             pause_allowed=pause_allowed,
@@ -93,3 +101,4 @@ class SessionRepository(BaseRepository):
             self.db.refresh(session)
 
         return session
+
