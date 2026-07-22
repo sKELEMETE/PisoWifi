@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import useAdminStore from "../../store/adminStore";
 import adminApi from "../../api/adminClient";
 import VoucherManagement from "./VoucherManagement";
 import AdminSettings from "./AdminSettings";
+import { toast } from "../../store/toastStore";
 import "../../styles/admin.css";
 
 /* ==========================================================================
@@ -166,34 +167,52 @@ export default function AdminDashboard() {
 
     useEffect(() => { checkAuth(); }, [checkAuth]);
 
-    const fetchDashboard = useCallback(async () => {
+    const fetchDashboard = useCallback(async (isRefresh = false) => {
         try {
-            const res = await adminApi.get("/dashboard");
+            const url = isRefresh ? "/dashboard?refresh=1" : "/dashboard";
+            const res = await adminApi.get(url);
             if (res.data?.success) {
                 setData(res.data.data);
                 setFetchError(null);
             } else {
-                setFetchError(res.data?.message || "Failed to compile dashboard data");
+                const errText = res.data?.message || "Failed to compile dashboard data";
+                setFetchError(errText);
+                toast.error(errText);
             }
         } catch (err) {
             console.error("Dashboard fetch failed:", err);
-            setFetchError(
-                err.response?.status === 401
-                    ? "Session expired. Redirecting to login…"
-                    : "Unable to connect to backend API"
-            );
+            const errText = err.response?.status === 401
+                ? "Session expired. Redirecting to login…"
+                : "Unable to connect to backend API";
+            setFetchError(errText);
+            toast.error(errText);
         }
     }, []);
 
-    // Polling — pauses when tab is hidden to save resources
+    // ── Immediate forced refresh on initial mount / auth confirm ──────────────
+    // Fires once the moment isAuthenticated becomes true — requesting refresh=1
+    // to bypass stale cache and calculate fresh system health immediately.
+    const didImmediateFetch = useRef(false);
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            didImmediateFetch.current = false; // reset on logout
+            return;
+        }
+        if (didImmediateFetch.current) return; // guard: only once per session
+        didImmediateFetch.current = true;
+        fetchDashboard(true);
+    }, [isAuthenticated, fetchDashboard]);
+
+    // ── Polling — pauses when tab is hidden to save resources ─────────────────
+    // Calls fetchDashboard(false) every 15 seconds to fetch cached health.
     useEffect(() => {
         if (!isAuthenticated) return;
         let id = null;
 
         const start = () => {
             if (id) return;
-            fetchDashboard();
-            id = setInterval(fetchDashboard, 15000);
+            id = setInterval(() => fetchDashboard(false), 15000);
         };
         const stop = () => { if (id) { clearInterval(id); id = null; } };
         const onVisibility = () => document.visibilityState === "visible" ? start() : stop();
@@ -224,7 +243,11 @@ export default function AdminDashboard() {
 
     if (!isAuthenticated) return null;
 
-    const handleLogout = async () => { await logout(); navigate("/admin/login"); };
+    const handleLogout = async () => {
+        await logout();
+        toast.info("Signed out of admin portal");
+        navigate("/admin/login");
+    };
 
     const sh = data?.system_health;
     const cpuDanger  = sh?.cpu_usage_percent  > 90;

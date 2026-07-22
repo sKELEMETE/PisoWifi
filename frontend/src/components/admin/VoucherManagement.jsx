@@ -8,6 +8,7 @@ import {
     expireVoucher,
     exportVouchers,
 } from "../../api/voucherApi";
+import { toast } from "../../store/toastStore";
 
 // ── Voucher Status Badge ───────────────────────────────────────────────────────
 function VoucherBadge({ status }) {
@@ -52,8 +53,6 @@ export default function VoucherManagement() {
     const [stats, setStats] = useState(null);
     const [vouchers, setVouchers] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [message, setMessage] = useState("");
 
     // Pagination
     const [pagination, setPagination] = useState({
@@ -74,19 +73,6 @@ export default function VoucherManagement() {
     const [exportLoading, setExportLoading] = useState(false);
     const [exportFormat, setExportFormat] = useState("csv");
 
-    // Auto-dismiss messages
-    useEffect(() => {
-        if (!message) return;
-        const t = setTimeout(() => setMessage(""), 5000);
-        return () => clearTimeout(t);
-    }, [message]);
-
-    useEffect(() => {
-        if (!error) return;
-        const t = setTimeout(() => setError(""), 8000);
-        return () => clearTimeout(t);
-    }, [error]);
-
     const fetchStats = useCallback(async () => {
         try {
             const res = await getVoucherStats();
@@ -98,7 +84,6 @@ export default function VoucherManagement() {
 
     const fetchVouchers = useCallback(async () => {
         setLoading(true);
-        setError("");
         try {
             const res = await listVouchers({
                 status: statusFilter || undefined,
@@ -116,7 +101,7 @@ export default function VoucherManagement() {
                 }));
             }
         } catch (err) {
-            setError(err.response?.data?.message || "Failed to load vouchers");
+            toast.error(err.response?.data?.message || "Failed to load vouchers");
         } finally {
             setLoading(false);
         }
@@ -130,14 +115,12 @@ export default function VoucherManagement() {
     const handleCreate = async (e) => {
         e.preventDefault();
         setCreateLoading(true);
-        setError("");
-        setMessage("");
 
         try {
             if (createForm.count === 1) {
                 const res = await createVoucher(createForm.minutes, createForm.expiresAt || null);
                 if (res.success) {
-                    setMessage(`✓ Voucher ${res.data.code} created successfully`);
+                    toast.success(`Voucher ${res.data.code} created successfully`);
                     setCreateForm({ minutes: 60, count: 1, expiresAt: "" });
                     setShowCreateModal(false);
                     fetchVouchers();
@@ -146,7 +129,7 @@ export default function VoucherManagement() {
             } else {
                 const res = await createVouchersBulk(createForm.count, createForm.minutes, createForm.expiresAt || null);
                 if (res.success) {
-                    setMessage(`✓ ${res.data.created} vouchers created successfully`);
+                    toast.success(`${res.data.created} vouchers created successfully`);
                     setCreateForm({ minutes: 60, count: 1, expiresAt: "" });
                     setShowCreateModal(false);
                     fetchVouchers();
@@ -154,7 +137,7 @@ export default function VoucherManagement() {
                 }
             }
         } catch (err) {
-            setError(err.response?.data?.message || "Failed to create voucher(s)");
+            toast.error(err.response?.data?.message || "Failed to create voucher(s)");
         } finally {
             setCreateLoading(false);
         }
@@ -166,12 +149,12 @@ export default function VoucherManagement() {
         try {
             const res = await deleteVoucher(voucherId);
             if (res.success) {
-                setMessage("✓ Voucher deleted");
+                toast.success(`Voucher ${code} deleted`);
                 fetchVouchers();
                 fetchStats();
             }
         } catch (err) {
-            setError(err.response?.data?.message || "Failed to delete voucher");
+            toast.error(err.response?.data?.message || "Failed to delete voucher");
         } finally {
             setLoading(false);
         }
@@ -183,12 +166,12 @@ export default function VoucherManagement() {
         try {
             const res = await expireVoucher(voucherId);
             if (res.success) {
-                setMessage("✓ Voucher expired");
+                toast.success(`Voucher ${code} expired`);
                 fetchVouchers();
                 fetchStats();
             }
         } catch (err) {
-            setError(err.response?.data?.message || "Failed to expire voucher");
+            toast.error(err.response?.data?.message || "Failed to expire voucher");
         } finally {
             setLoading(false);
         }
@@ -207,9 +190,9 @@ export default function VoucherManagement() {
             a.download = `vouchers_${new Date().toISOString().slice(0, 10)}.${exportFormat}`;
             a.click();
             window.URL.revokeObjectURL(url);
-            setMessage(`✓ Exported as ${exportFormat.toUpperCase()}`);
+            toast.info(`Exported as ${exportFormat.toUpperCase()}`);
         } catch {
-            setError("Failed to export vouchers");
+            toast.error("Failed to export vouchers");
         } finally {
             setExportLoading(false);
         }
@@ -467,20 +450,6 @@ export default function VoucherManagement() {
                     </div>
                 )}
             </div>
-
-            {/* ── Feedback Banners ────────────────────────────── */}
-            {error && (
-                <div className="admin-alert admin-alert-danger" role="alert" style={{ marginTop: "var(--admin-space-4)" }}>
-                    <span className="admin-alert-icon">⚠️</span>
-                    <span>{error}</span>
-                </div>
-            )}
-            {message && (
-                <div className="admin-alert admin-alert-success" role="status" style={{ marginTop: "var(--admin-space-4)" }}>
-                    <span className="admin-alert-icon">✓</span>
-                    <span>{message}</span>
-                </div>
-            )}
 
             {/* ── Create Voucher Modal ─────────────────────────── */}
             {showCreateModal && (

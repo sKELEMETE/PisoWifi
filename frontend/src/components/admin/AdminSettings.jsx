@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import adminApi from "../../api/adminClient";
 import useAdminStore from "../../store/adminStore";
+import { toast } from "../../store/toastStore";
 
 export default function AdminSettings({ currentUsername }) {
     const navigate = useNavigate();
@@ -12,26 +13,20 @@ export default function AdminSettings({ currentUsername }) {
     // Username state
     const [userForm, setUserForm] = useState({ currentPassword: "", newUsername: "" });
     const [userLoading, setUserLoading] = useState(false);
-    const [userError, setUserError] = useState("");
-    const [userSuccess, setUserSuccess] = useState("");
 
     // Password state
     const [passForm, setPassForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
     const [passLoading, setPassLoading] = useState(false);
-    const [passError, setPassError] = useState("");
-    const [passSuccess, setPassSuccess] = useState("");
 
     const handleUsernameSubmit = async (e) => {
         e.preventDefault();
-        setUserError("");
-        setUserSuccess("");
 
         if (!userForm.currentPassword) {
-            setUserError("Current password is required.");
+            toast.error("Current password is required.");
             return;
         }
         if (!userForm.newUsername || userForm.newUsername.trim().length < 3) {
-            setUserError("New username must be at least 3 characters.");
+            toast.error("New username must be at least 3 characters.");
             return;
         }
 
@@ -42,14 +37,14 @@ export default function AdminSettings({ currentUsername }) {
                 new_username: userForm.newUsername.trim(),
             });
             if (res.data?.success) {
-                setUserSuccess("Username updated. Session invalidated — redirecting to login…");
+                toast.success("Username updated. Session invalidated — redirecting to login…");
                 setTimeout(async () => {
                     await logout();
                     navigate("/admin/login");
                 }, 1800);
             }
         } catch (err) {
-            setUserError(err.response?.data?.detail || "Failed to update username.");
+            toast.error(err.response?.data?.detail || "Failed to update username.");
         } finally {
             setUserLoading(false);
         }
@@ -57,19 +52,17 @@ export default function AdminSettings({ currentUsername }) {
 
     const handlePasswordSubmit = async (e) => {
         e.preventDefault();
-        setPassError("");
-        setPassSuccess("");
 
         if (!passForm.currentPassword) {
-            setPassError("Current password is required.");
+            toast.error("Current password is required.");
             return;
         }
         if (!passForm.newPassword || passForm.newPassword.length < 6) {
-            setPassError("New password must be at least 6 characters.");
+            toast.error("New password must be at least 6 characters.");
             return;
         }
         if (passForm.newPassword !== passForm.confirmPassword) {
-            setPassError("Passwords do not match.");
+            toast.error("Passwords do not match.");
             return;
         }
 
@@ -80,14 +73,14 @@ export default function AdminSettings({ currentUsername }) {
                 new_password: passForm.newPassword,
             });
             if (res.data?.success) {
-                setPassSuccess("Password updated. Session invalidated — redirecting to login…");
+                toast.success("Password updated. Session invalidated — redirecting to login…");
                 setTimeout(async () => {
                     await logout();
                     navigate("/admin/login");
                 }, 1800);
             }
         } catch (err) {
-            setPassError(err.response?.data?.detail || "Failed to update password.");
+            toast.error(err.response?.data?.detail || "Failed to update password.");
         } finally {
             setPassLoading(false);
         }
@@ -109,10 +102,7 @@ export default function AdminSettings({ currentUsername }) {
                     <button
                         role="tab"
                         aria-selected={activeTab === "password"}
-                        onClick={() => {
-                            setActiveTab("password");
-                            setPassError(""); setPassSuccess("");
-                        }}
+                        onClick={() => setActiveTab("password")}
                         className={`admin-tab-btn${activeTab === "password" ? " active" : ""}`}
                         id="tab-password"
                         aria-controls="panel-password"
@@ -122,10 +112,7 @@ export default function AdminSettings({ currentUsername }) {
                     <button
                         role="tab"
                         aria-selected={activeTab === "username"}
-                        onClick={() => {
-                            setActiveTab("username");
-                            setUserError(""); setUserSuccess("");
-                        }}
+                        onClick={() => setActiveTab("username")}
                         className={`admin-tab-btn${activeTab === "username" ? " active" : ""}`}
                         id="tab-username"
                         aria-controls="panel-username"
@@ -200,20 +187,6 @@ export default function AdminSettings({ currentUsername }) {
                                 required
                             />
                         </div>
-
-                        {passError && (
-                            <div className="admin-alert admin-alert-danger" role="alert">
-                                <span className="admin-alert-icon">⚠️</span>
-                                <span>{passError}</span>
-                            </div>
-                        )}
-
-                        {passSuccess && (
-                            <div className="admin-alert admin-alert-success" role="status">
-                                <span className="admin-alert-icon">✓</span>
-                                <span>{passSuccess}</span>
-                            </div>
-                        )}
 
                         <div>
                             <button
@@ -291,20 +264,6 @@ export default function AdminSettings({ currentUsername }) {
                                 required
                             />
                         </div>
-
-                        {userError && (
-                            <div className="admin-alert admin-alert-danger" role="alert">
-                                <span className="admin-alert-icon">⚠️</span>
-                                <span>{userError}</span>
-                            </div>
-                        )}
-
-                        {userSuccess && (
-                            <div className="admin-alert admin-alert-success" role="status">
-                                <span className="admin-alert-icon">✓</span>
-                                <span>{userSuccess}</span>
-                            </div>
-                        )}
 
                         <div>
                             <button

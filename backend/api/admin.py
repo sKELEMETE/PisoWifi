@@ -108,15 +108,22 @@ def check_auth(current_admin: str = Depends(get_current_admin)):
 @router.get("/dashboard")
 def get_dashboard(
     request: Request,
+    refresh: bool = False,
     db: Session = Depends(get_db),
     current_admin: str = Depends(get_current_admin)
 ):
     service = AdminDashboardService(db)
     sales = service.get_sales_data()
     active_users = service.get_active_users()
-    system_health = HealthCacheService().get_cached_health()
+    
+    health_cache = HealthCacheService()
+    system_health = None
+    if not refresh:
+        system_health = health_cache.get_cached_health()
+
     if system_health is None:
         system_health = service.get_system_health(request)
+        health_cache.set_cached_health(system_health)
 
     dashboard_data = {
         "sales": sales,

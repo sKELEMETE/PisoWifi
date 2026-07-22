@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useAdminStore from "../../store/adminStore";
+import { toast } from "../../store/toastStore";
 import "../../styles/admin.css";
 
 export default function AdminLogin() {
@@ -24,7 +25,12 @@ export default function AdminLogin() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!usernameInput.trim() || !passwordInput.trim()) return;
-        await login(usernameInput, passwordInput);
+        const success = await login(usernameInput, passwordInput);
+        if (success) {
+            toast.success(`Signed in successfully as ${usernameInput}`);
+        } else {
+            toast.error(error || "Invalid username or password");
+        }
     };
 
     return (
@@ -37,18 +43,6 @@ export default function AdminLogin() {
             <p className="admin-login-subtitle">
                 Sign in to manage your PisoWiFi gateway
             </p>
-
-            {/* Error */}
-            {error && (
-                <div
-                    className="admin-alert admin-alert-danger"
-                    role="alert"
-                    style={{ marginBottom: "var(--admin-space-5)" }}
-                >
-                    <span className="admin-alert-icon">⚠️</span>
-                    <span>{error}</span>
-                </div>
-            )}
 
             <form onSubmit={handleSubmit} className="admin-login-form" id="admin-login-form" noValidate>
                 {/* Username */}

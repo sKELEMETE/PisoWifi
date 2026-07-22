@@ -4,6 +4,7 @@ import Background from "./components/layout/Background";
 import PortalCard from "./components/layout/PortalCard";
 import AdminLogin from "./components/admin/AdminLogin";
 import AdminDashboard from "./components/admin/AdminDashboard";
+import ToastContainer from "./components/common/ToastContainer";
 import soundManager from "./utils/SoundManager";
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
         <main className="app">
 
             <Background />
+            <ToastContainer />
 
             <Routes>
                 <Route path="/" element={<PortalCard />} />
@@ -28,4 +30,5 @@ export default function App() {
     );
 
 }
+
 
