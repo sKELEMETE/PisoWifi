@@ -7,7 +7,7 @@ export default function AdminSettings({ currentUsername }) {
     const navigate = useNavigate();
     const logout = useAdminStore((state) => state.logout);
 
-    const [activeTab, setActiveTab] = useState("password"); // "username" or "password"
+    const [activeTab, setActiveTab] = useState("password");
 
     // Username state
     const [userForm, setUserForm] = useState({ currentPassword: "", newUsername: "" });
@@ -31,7 +31,7 @@ export default function AdminSettings({ currentUsername }) {
             return;
         }
         if (!userForm.newUsername || userForm.newUsername.trim().length < 3) {
-            setUserError("New username must be at least 3 characters long.");
+            setUserError("New username must be at least 3 characters.");
             return;
         }
 
@@ -42,14 +42,14 @@ export default function AdminSettings({ currentUsername }) {
                 new_username: userForm.newUsername.trim(),
             });
             if (res.data?.success) {
-                setUserSuccess("Username updated successfully! Session invalidated. Redirecting to login...");
+                setUserSuccess("Username updated. Session invalidated — redirecting to login…");
                 setTimeout(async () => {
                     await logout();
                     navigate("/admin/login");
-                }, 1500);
+                }, 1800);
             }
         } catch (err) {
-            setUserError(err.response?.data?.detail || "Failed updating username.");
+            setUserError(err.response?.data?.detail || "Failed to update username.");
         } finally {
             setUserLoading(false);
         }
@@ -65,11 +65,11 @@ export default function AdminSettings({ currentUsername }) {
             return;
         }
         if (!passForm.newPassword || passForm.newPassword.length < 6) {
-            setPassError("New password must be at least 6 characters long.");
+            setPassError("New password must be at least 6 characters.");
             return;
         }
         if (passForm.newPassword !== passForm.confirmPassword) {
-            setPassError("New password and confirmation do not match.");
+            setPassError("Passwords do not match.");
             return;
         }
 
@@ -80,175 +80,244 @@ export default function AdminSettings({ currentUsername }) {
                 new_password: passForm.newPassword,
             });
             if (res.data?.success) {
-                setPassSuccess("Password updated successfully! Session invalidated. Redirecting to login...");
+                setPassSuccess("Password updated. Session invalidated — redirecting to login…");
                 setTimeout(async () => {
                     await logout();
                     navigate("/admin/login");
-                }, 1500);
+                }, 1800);
             }
         } catch (err) {
-            setPassError(err.response?.data?.detail || "Failed updating password.");
+            setPassError(err.response?.data?.detail || "Failed to update password.");
         } finally {
             setPassLoading(false);
         }
     };
 
     return (
-        <div className="section-card" style={{ marginTop: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+        <div>
+            {/* Settings Header */}
+            <div className="section-card-header" style={{ marginBottom: "var(--admin-space-6)" }}>
                 <div>
-                    <h3 className="section-title" style={{ margin: 0 }}>Security & Admin Credentials</h3>
-                    <p style={{ color: "var(--muted)", fontSize: "0.82rem", margin: "4px 0 0" }}>
-                        Manage administrator account security and credentials safely
+                    <h3 className="section-title">Security &amp; Credentials</h3>
+                    <p className="section-subtitle">
+                        Manage administrator account access and authentication
                     </p>
                 </div>
 
-                <div style={{ display: "flex", gap: "8px" }}>
+                {/* Tab Switcher */}
+                <div className="admin-tab-group" role="tablist" aria-label="Settings tabs">
                     <button
-                        onClick={() => setActiveTab("password")}
-                        className={`glass-btn ${activeTab === "password" ? "glass-btn-primary" : "glass-btn-ghost"}`}
-                        style={{ padding: "6px 14px", minHeight: "36px", fontSize: "0.8rem" }}
+                        role="tab"
+                        aria-selected={activeTab === "password"}
+                        onClick={() => {
+                            setActiveTab("password");
+                            setPassError(""); setPassSuccess("");
+                        }}
+                        className={`admin-tab-btn${activeTab === "password" ? " active" : ""}`}
+                        id="tab-password"
+                        aria-controls="panel-password"
                     >
-                        Change Password
+                        Password
                     </button>
                     <button
-                        onClick={() => setActiveTab("username")}
-                        className={`glass-btn ${activeTab === "username" ? "glass-btn-primary" : "glass-btn-ghost"}`}
-                        style={{ padding: "6px 14px", minHeight: "36px", fontSize: "0.8rem" }}
+                        role="tab"
+                        aria-selected={activeTab === "username"}
+                        onClick={() => {
+                            setActiveTab("username");
+                            setUserError(""); setUserSuccess("");
+                        }}
+                        className={`admin-tab-btn${activeTab === "username" ? " active" : ""}`}
+                        id="tab-username"
+                        aria-controls="panel-username"
                     >
-                        Change Username
+                        Username
                     </button>
                 </div>
             </div>
 
-            {activeTab === "password" ? (
-                <form onSubmit={handlePasswordSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px", maxWidth: "480px" }}>
-                    <div>
-                        <label style={{ display: "block", fontSize: "0.8rem", color: "var(--muted)", fontWeight: "500", marginBottom: "6px" }}>
-                            Current Password
-                        </label>
-                        <input
-                            type="password"
-                            className="glass-input"
-                            style={{ width: "100%" }}
-                            value={passForm.currentPassword}
-                            onChange={(e) => setPassForm((f) => ({ ...f, currentPassword: e.target.value }))}
-                            placeholder="Enter current password"
-                            disabled={passLoading}
-                        />
-                    </div>
-
-                    <div>
-                        <label style={{ display: "block", fontSize: "0.8rem", color: "var(--muted)", fontWeight: "500", marginBottom: "6px" }}>
-                            New Password (min. 6 characters)
-                        </label>
-                        <input
-                            type="password"
-                            className="glass-input"
-                            style={{ width: "100%" }}
-                            value={passForm.newPassword}
-                            onChange={(e) => setPassForm((f) => ({ ...f, newPassword: e.target.value }))}
-                            placeholder="Enter new password"
-                            disabled={passLoading}
-                        />
-                    </div>
-
-                    <div>
-                        <label style={{ display: "block", fontSize: "0.8rem", color: "var(--muted)", fontWeight: "500", marginBottom: "6px" }}>
-                            Confirm New Password
-                        </label>
-                        <input
-                            type="password"
-                            className="glass-input"
-                            style={{ width: "100%" }}
-                            value={passForm.confirmPassword}
-                            onChange={(e) => setPassForm((f) => ({ ...f, confirmPassword: e.target.value }))}
-                            placeholder="Re-enter new password"
-                            disabled={passLoading}
-                        />
-                    </div>
-
-                    {passError && (
-                        <div style={{ color: "#fca5a5", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.25)", borderRadius: "12px", padding: "10px 14px", fontSize: "0.82rem" }}>
-                            {passError}
+            {/* ── Change Password ── */}
+            {activeTab === "password" && (
+                <div
+                    role="tabpanel"
+                    id="panel-password"
+                    aria-labelledby="tab-password"
+                >
+                    <form
+                        onSubmit={handlePasswordSubmit}
+                        className="admin-form-panel"
+                        id="admin-change-password-form"
+                        noValidate
+                    >
+                        <div className="admin-form-group">
+                            <label htmlFor="pass-current" className="admin-form-label">
+                                Current Password
+                            </label>
+                            <input
+                                id="pass-current"
+                                type="password"
+                                className="glass-input"
+                                placeholder="Enter your current password"
+                                value={passForm.currentPassword}
+                                onChange={(e) => setPassForm(f => ({ ...f, currentPassword: e.target.value }))}
+                                disabled={passLoading}
+                                autoComplete="current-password"
+                                required
+                            />
                         </div>
-                    )}
 
-                    {passSuccess && (
-                        <div style={{ color: "#6ee7b7", background: "rgba(52, 211, 153, 0.12)", border: "1px solid rgba(52, 211, 153, 0.25)", borderRadius: "12px", padding: "10px 14px", fontSize: "0.82rem" }}>
-                            {passSuccess}
+                        <div className="admin-form-group">
+                            <label htmlFor="pass-new" className="admin-form-label">
+                                New Password
+                            </label>
+                            <input
+                                id="pass-new"
+                                type="password"
+                                className="glass-input"
+                                placeholder="At least 6 characters"
+                                value={passForm.newPassword}
+                                onChange={(e) => setPassForm(f => ({ ...f, newPassword: e.target.value }))}
+                                disabled={passLoading}
+                                autoComplete="new-password"
+                                minLength={6}
+                                required
+                            />
+                            <span className="admin-form-hint">Minimum 6 characters required</span>
                         </div>
-                    )}
 
-                    <div>
-                        <button type="submit" disabled={passLoading} className="glass-btn glass-btn-primary">
-                            {passLoading ? "Updating Password..." : "Update Password"}
-                        </button>
-                    </div>
-                </form>
-            ) : (
-                <form onSubmit={handleUsernameSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px", maxWidth: "480px" }}>
-                    <div>
-                        <label style={{ display: "block", fontSize: "0.8rem", color: "var(--muted)", fontWeight: "500", marginBottom: "6px" }}>
-                            Current Admin Username
-                        </label>
-                        <input
-                            type="text"
-                            className="glass-input"
-                            style={{ width: "100%", opacity: 0.6 }}
-                            value={currentUsername || "admin"}
-                            disabled
-                        />
-                    </div>
-
-                    <div>
-                        <label style={{ display: "block", fontSize: "0.8rem", color: "var(--muted)", fontWeight: "500", marginBottom: "6px" }}>
-                            New Admin Username
-                        </label>
-                        <input
-                            type="text"
-                            className="glass-input"
-                            style={{ width: "100%" }}
-                            value={userForm.newUsername}
-                            onChange={(e) => setUserForm((f) => ({ ...f, newUsername: e.target.value }))}
-                            placeholder="Enter new username"
-                            disabled={userLoading}
-                        />
-                    </div>
-
-                    <div>
-                        <label style={{ display: "block", fontSize: "0.8rem", color: "var(--muted)", fontWeight: "500", marginBottom: "6px" }}>
-                            Current Password (for authorization)
-                        </label>
-                        <input
-                            type="password"
-                            className="glass-input"
-                            style={{ width: "100%" }}
-                            value={userForm.currentPassword}
-                            onChange={(e) => setUserForm((f) => ({ ...f, currentPassword: e.target.value }))}
-                            placeholder="Enter current password"
-                            disabled={userLoading}
-                        />
-                    </div>
-
-                    {userError && (
-                        <div style={{ color: "#fca5a5", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.25)", borderRadius: "12px", padding: "10px 14px", fontSize: "0.82rem" }}>
-                            {userError}
+                        <div className="admin-form-group">
+                            <label htmlFor="pass-confirm" className="admin-form-label">
+                                Confirm New Password
+                            </label>
+                            <input
+                                id="pass-confirm"
+                                type="password"
+                                className="glass-input"
+                                placeholder="Re-enter new password"
+                                value={passForm.confirmPassword}
+                                onChange={(e) => setPassForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                                disabled={passLoading}
+                                autoComplete="new-password"
+                                required
+                            />
                         </div>
-                    )}
 
-                    {userSuccess && (
-                        <div style={{ color: "#6ee7b7", background: "rgba(52, 211, 153, 0.12)", border: "1px solid rgba(52, 211, 153, 0.25)", borderRadius: "12px", padding: "10px 14px", fontSize: "0.82rem" }}>
-                            {userSuccess}
+                        {passError && (
+                            <div className="admin-alert admin-alert-danger" role="alert">
+                                <span className="admin-alert-icon">⚠️</span>
+                                <span>{passError}</span>
+                            </div>
+                        )}
+
+                        {passSuccess && (
+                            <div className="admin-alert admin-alert-success" role="status">
+                                <span className="admin-alert-icon">✓</span>
+                                <span>{passSuccess}</span>
+                            </div>
+                        )}
+
+                        <div>
+                            <button
+                                type="submit"
+                                id="admin-update-password-btn"
+                                disabled={passLoading}
+                                className="glass-btn glass-btn-primary"
+                            >
+                                {passLoading ? "Updating…" : "Update Password"}
+                            </button>
                         </div>
-                    )}
+                    </form>
+                </div>
+            )}
 
-                    <div>
-                        <button type="submit" disabled={userLoading} className="glass-btn glass-btn-primary">
-                            {userLoading ? "Updating Username..." : "Update Username"}
-                        </button>
-                    </div>
-                </form>
+            {/* ── Change Username ── */}
+            {activeTab === "username" && (
+                <div
+                    role="tabpanel"
+                    id="panel-username"
+                    aria-labelledby="tab-username"
+                >
+                    <form
+                        onSubmit={handleUsernameSubmit}
+                        className="admin-form-panel"
+                        id="admin-change-username-form"
+                        noValidate
+                    >
+                        <div className="admin-form-group">
+                            <label htmlFor="user-current" className="admin-form-label">
+                                Current Username
+                            </label>
+                            <input
+                                id="user-current"
+                                type="text"
+                                className="glass-input"
+                                value={currentUsername || "admin"}
+                                disabled
+                                aria-readonly="true"
+                                style={{ opacity: 0.5 }}
+                            />
+                        </div>
+
+                        <div className="admin-form-group">
+                            <label htmlFor="user-new" className="admin-form-label">
+                                New Username
+                            </label>
+                            <input
+                                id="user-new"
+                                type="text"
+                                className="glass-input"
+                                placeholder="Enter new username"
+                                value={userForm.newUsername}
+                                onChange={(e) => setUserForm(f => ({ ...f, newUsername: e.target.value }))}
+                                disabled={userLoading}
+                                minLength={3}
+                                required
+                            />
+                            <span className="admin-form-hint">Minimum 3 characters required</span>
+                        </div>
+
+                        <div className="admin-form-group">
+                            <label htmlFor="user-pass" className="admin-form-label">
+                                Current Password (for authorization)
+                            </label>
+                            <input
+                                id="user-pass"
+                                type="password"
+                                className="glass-input"
+                                placeholder="Enter your current password"
+                                value={userForm.currentPassword}
+                                onChange={(e) => setUserForm(f => ({ ...f, currentPassword: e.target.value }))}
+                                disabled={userLoading}
+                                autoComplete="current-password"
+                                required
+                            />
+                        </div>
+
+                        {userError && (
+                            <div className="admin-alert admin-alert-danger" role="alert">
+                                <span className="admin-alert-icon">⚠️</span>
+                                <span>{userError}</span>
+                            </div>
+                        )}
+
+                        {userSuccess && (
+                            <div className="admin-alert admin-alert-success" role="status">
+                                <span className="admin-alert-icon">✓</span>
+                                <span>{userSuccess}</span>
+                            </div>
+                        )}
+
+                        <div>
+                            <button
+                                type="submit"
+                                id="admin-update-username-btn"
+                                disabled={userLoading}
+                                className="glass-btn glass-btn-primary"
+                            >
+                                {userLoading ? "Updating…" : "Update Username"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             )}
         </div>
     );
