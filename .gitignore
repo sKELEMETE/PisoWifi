@@ -1,18 +1,86 @@
-venv/
+# Python environment & bytecode
 __pycache__/
-*.pyc
-
-.env
-
-node_modules/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+build/
 dist/
+venv/
+.venv/
+env/
 
+# Node / Web Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+.next/
+.nuxt/
+.vite/
+.turbo/
+.npm/
+.eslintcache
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database & Runtime storage
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+pisowifi.db
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+backend/.env
+frontend/.env
+!.env.example
+frontend/!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+
+# Runtime, Logs, Backups & Temp files
 logs/
-
-backups/
-
-.vscode/
-
-.idea/
-
 *.log
+backups/
+uploads/
+run/*
+!run/.gitkeep
+tmp/
+*.tmp
+*.bak
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# Editor & IDE configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+
+# Agent & AI tool caches
+.gemini/
+.claude/
+
