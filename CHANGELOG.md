@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.15.0] - 2026-08-31
+
+### Added
+- Orange Pi PC / Debian 13 Trixie native GPIO backend using libgpiod v2, with live board/chip/line verification and maintained PA7/PA9 header defaults.
+- GPIO relay power controller, safe OFF initialization/shutdown/expiry behavior, configurable polarity, pulse edge, debounce, burst grouping, and calibrated pulse mapping.
+- Owner/IP-bound Insert Coin heartbeat leases, stale-generation rejection, beacon-assisted close, and one-second server expiry enforcement using the existing reservation/accounting tables.
+- Interactive hardware safety checks, relay test, three-sample denomination calibration, exact completion wiring summary, `hardware-status`, `hardware-test`, and doctor checks.
+- Fresh-install dependency/build/network service provisioning and backward-compatible lease database migration.
+- Hardware-independent tests for Arduino parsing, GPIO processing, ownership, expiry, relay polarity, and failure paths.
+
+### Changed
+- Arduino remains the default backend and now accepts both `PULSE:` and `PULSES:` packet spellings.
+- Explicit process environment values now take precedence over a checkout-local `.env`, improving installer/test portability.
+
+### Safety
+- Native GPIO setup refuses unknown boards, non-Trixie targets, unresolved/busy lines, and unverified 3.3V pulse/relay interfaces. Documentation never permits a direct 12V signal connection.
+
 All notable changes to the PisoWiFi project will be documented in this file.
 
 ## [1.14.0] - 2026-07-21
@@ -210,7 +227,6 @@ All notable changes to the PisoWiFi project will be documented in this file.
 - Overhauled [coin_listener.py](file:///opt/pisowifi/backend/coin_serial/coin_listener.py) to act as a stateless serial listener bridge.
 - Refactored [startup_sequence.py](file:///opt/pisowifi/backend/recovery/startup_sequence.py) to reconcile pending coins on startup directly from the database table.
 - Configured [jobs.py](file:///opt/pisowifi/backend/scheduler/jobs.py) scheduler to expire reservations automatically in the background.
-
 
 
 

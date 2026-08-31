@@ -2,7 +2,7 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
-LOG_DIR = "/opt/pisowifi/logs"
+LOG_DIR = os.getenv("LOG_DIRECTORY", "/opt/pisowifi/logs")
 
 
 def get_logger(name: str, log_filename: str) -> logging.Logger:
@@ -10,8 +10,17 @@ def get_logger(name: str, log_filename: str) -> logging.Logger:
     logger.setLevel(logging.INFO)
 
     if not logger.handlers:
-        os.makedirs(LOG_DIR, exist_ok=True)
-        log_path = os.path.join(LOG_DIR, log_filename)
+        try:
+            os.makedirs(LOG_DIR, exist_ok=True)
+        except OSError:
+            # Read-only development hosts must still be able to run dry-runs
+            # and unit tests without impersonating a production install.
+            fallback = os.path.join("/tmp", "pisowifi-logs")
+            os.makedirs(fallback, exist_ok=True)
+            log_dir = fallback
+        else:
+            log_dir = LOG_DIR
+        log_path = os.path.join(log_dir, log_filename)
 
         handler = RotatingFileHandler(log_path, maxBytes=10 * 1024 * 1024, backupCount=5)
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")

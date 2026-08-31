@@ -1,7 +1,7 @@
 def validate_packet(packet: str) -> int | None:
     packet = packet.strip().upper()
 
-    if not packet.startswith("PULSES:"):
+    if not (packet.startswith("PULSE:") or packet.startswith("PULSES:")):
         return None
 
     try:

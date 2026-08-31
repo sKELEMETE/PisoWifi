@@ -18,6 +18,10 @@ def create_and_validate_backup(base_dir: str, backup_dest_dir: str) -> str:
     if os.path.exists(env_path):
         target_files.append((env_path, "backend/.env"))
 
+    sqlite_path = os.path.join(base_dir, "pisowifi.db")
+    if os.path.exists(sqlite_path):
+        target_files.append((sqlite_path, "pisowifi.db"))
+
     config_dir = os.path.join(base_dir, "config")
     if os.path.exists(config_dir):
         target_files.append((config_dir, "config"))
@@ -26,6 +30,7 @@ def create_and_validate_backup(base_dir: str, backup_dest_dir: str) -> str:
     system_configs = [
         ("/etc/systemd/system/pisowifi-backend.service", "etc/pisowifi-backend.service"),
         ("/etc/systemd/system/pisowifi-coin.service", "etc/pisowifi-coin.service"),
+        ("/etc/systemd/system/pisowifi-network.service", "etc/pisowifi-network.service"),
         ("/etc/nginx/sites-available/pisowifi", "etc/nginx-pisowifi"),
         ("/etc/dnsmasq.d/pisowifi.conf", "etc/dnsmasq-pisowifi.conf"),
         ("/etc/nftables.conf", "etc/nftables.conf"),

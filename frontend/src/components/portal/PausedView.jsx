@@ -14,13 +14,17 @@ export default function PausedView() {
             state => state.session
         );
     const [showPopup, setShowPopup] = useState(false);
+    const [coinLease, setCoinLease] = useState(null);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const setSession = useSessionStore(state => state.setSession);
     const setPortalState = usePortalStore(state => state.setPortalState);
     const macAddress = session?.mac_address;
 
-    const handleClose = useCallback(() => setShowPopup(false), []);
+    const handleClose = useCallback(() => {
+        setShowPopup(false);
+        setCoinLease(null);
+    }, []);
 
     async function handleResume() {
         if (!session?.mac_address) {
@@ -56,6 +60,7 @@ export default function PausedView() {
             const res = await activateCoin(macAddress);
             if (res.success) {
                 soundManager.playExplosionThenAlarm();
+                setCoinLease(res.data);
                 setShowPopup(true);
             } else {
                 setErrorMsg(res.message || "Another customer is currently inserting coins. Please wait.");
@@ -110,9 +115,10 @@ export default function PausedView() {
                 Resume Time
             </Button>
 
-            {showPopup && macAddress && (
+            {showPopup && macAddress && coinLease?.lease_token && (
                 <CoinPopup 
                     macAddress={macAddress} 
+                    lease={coinLease}
                     onClose={handleClose} 
                 />
             )}

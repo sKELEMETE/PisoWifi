@@ -1,6 +1,6 @@
 [Unit]
 Description=PisoWiFi Coin Listener
-After=network.target
+After=network.target pisowifi-backend.service
 
 [Service]
 User=root
@@ -8,6 +8,12 @@ WorkingDirectory={base_dir}/backend
 Environment="PATH={base_dir}/backend/venv/bin"
 ExecStart={base_dir}/backend/venv/bin/python run_coin_listener.py
 Restart=always
+RestartSec=2
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths={base_dir}
+ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target

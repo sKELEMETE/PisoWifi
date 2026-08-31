@@ -82,7 +82,7 @@ def detect_serial_device() -> str | None:
                 # Read up to 200 bytes or until timeout
                 data = ser.read(200)
                 decoded = data.decode(errors="ignore").upper()
-                if "PISOWIFI" in decoded or "PULSES" in decoded or "COIN" in decoded:
+                if "PISOWIFI" in decoded or "PULSE" in decoded or "COIN" in decoded:
                     with _cache_lock:
                         _cached_device = device
                     return device

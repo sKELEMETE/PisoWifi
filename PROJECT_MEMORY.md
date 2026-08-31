@@ -1,6 +1,10 @@
 # Project Memory
 
 ## Current Project Status
+Version 1.15.0 adds a dual coin-hardware architecture. Existing Arduino USB serial installations remain the default; verified Orange Pi PC hosts on Debian 13 Trixie can use libgpiod input plus a GPIO-controlled, normally-OFF selector power relay. The existing database reservation is now an owner/IP-bound 12-second heartbeat lease, with GPIO bursts tied to the lease generation captured on their first edge.
+
+Hardware defaults are physical pin 29 / PA7 for coin input and physical pin 33 / PA9 for relay output, but only after exact host detection and live `gpioinfo` name/availability resolution. `/dev/gpiochipN` is never assumed. Electrical isolation/level conversion and a verified 3.3V-compatible relay interface are mandatory.
+
 The project is fully functional and production-ready. The captive portal, session lifecycle, coin insertion (with slot reservation), pause/resume flows, and bandwidth shaping are all operational and highly optimized:
 - **Optimistic UI Updates**: State transitions (Pause, Resume, Done) update the frontend stores immediately on API success, bypassing the 5-second polling state lag.
 - **Grouped Authorization Calls**: During bulk coin drop processing, firewall authorization is skipped for intermediate coins and runs only on the last coin, reducing shell subprocess execution by up to 10×.

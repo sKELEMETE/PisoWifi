@@ -6,6 +6,7 @@ def render_templates(config_dir: str, params: dict) -> dict[str, str]:
     templates = {
         "systemd/pisowifi-backend.service": os.path.join(config_dir, "systemd", "pisowifi-backend.service.template"),
         "systemd/pisowifi-coin.service": os.path.join(config_dir, "systemd", "pisowifi-coin.service.template"),
+        "systemd/pisowifi-network.service": os.path.join(config_dir, "systemd", "pisowifi-network.service.template"),
         "nginx/pisowifi.conf": os.path.join(config_dir, "nginx", "pisowifi.conf.template"),
         "dnsmasq/dnsmasq.conf": os.path.join(config_dir, "dnsmasq", "dnsmasq.conf.template"),
         "nftables/nftables.conf": os.path.join(config_dir, "nftables", "nftables.conf.template"),
@@ -76,6 +77,7 @@ def install_system_files(output_paths: dict[str, str], rollback_mgr=None) -> Non
     install_targets = {
         "systemd/pisowifi-backend.service": "/etc/systemd/system/pisowifi-backend.service",
         "systemd/pisowifi-coin.service": "/etc/systemd/system/pisowifi-coin.service",
+        "systemd/pisowifi-network.service": "/etc/systemd/system/pisowifi-network.service",
         "nginx/pisowifi.conf": "/etc/nginx/sites-available/pisowifi",
         "dnsmasq/dnsmasq.conf": "/etc/dnsmasq.d/pisowifi.conf",
         "nftables/nftables.conf": "/etc/nftables.conf",
@@ -115,6 +117,12 @@ def install_system_files(output_paths: dict[str, str], rollback_mgr=None) -> Non
 
         # Link Nginx site
         if key == "nginx/pisowifi.conf":
+            default_site = "/etc/nginx/sites-enabled/default"
+            if os.path.exists(default_site) or os.path.islink(default_site):
+                if rollback_mgr:
+                    rollback_mgr.remove_path(default_site)
+                else:
+                    os.remove(default_site)
             dst_nginx_enable = "/etc/nginx/sites-enabled/pisowifi"
             if not os.path.exists(dst_nginx_enable):
                 try:

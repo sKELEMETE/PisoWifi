@@ -19,6 +19,10 @@ class CoinRequest(BaseModel):
     value: int = Field(..., ge=1, le=1000)
 
 
+class CoinLeaseRequest(BaseModel):
+    lease_token: str = Field(..., min_length=32, max_length=64)
+
+
 class VoucherRequest(BaseModel):
     code: str = Field(..., min_length=3, max_length=32)
 

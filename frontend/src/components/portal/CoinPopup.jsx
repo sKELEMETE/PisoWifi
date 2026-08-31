@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Button from "../common/Button";
 import useCoin from "../../hooks/useCoin";
-import { releaseCoin } from "../../api/coinApi";
+import { heartbeatCoin, releaseCoin } from "../../api/coinApi";
 import { getSession } from "../../api/sessionApi";
 import usePortalStore from "../../store/portalStore";
 import useSessionStore from "../../store/sessionStore";
 import soundManager from "../../utils/SoundManager";
 
-export default function CoinPopup({ macAddress, onClose }) {
-    const { coinStatus, error } = useCoin(true);
+export default function CoinPopup({ macAddress, lease, onClose }) {
+    const { coinStatus, error } = useCoin(true, macAddress, lease.lease_token);
     const [timeLeft, setTimeLeft] = useState(30);
     const prevAmountRef = useRef(0);
     const doneCalledRef = useRef(false);
@@ -22,7 +22,7 @@ export default function CoinPopup({ macAddress, onClose }) {
         if (doneCalledRef.current) return;
         doneCalledRef.current = true;
         try {
-            await releaseCoin(macAddress);
+            await releaseCoin(macAddress, lease.lease_token);
             if (prevAmountRef.current > 0) {
                 // Fetch the new session immediately to update UI without 5s lag
                 const sessRes = await getSession(macAddress);
@@ -61,12 +61,39 @@ export default function CoinPopup({ macAddress, onClose }) {
         }
 
         onClose();
-    }, [macAddress, onClose]);
+    }, [lease.lease_token, macAddress, onClose]);
 
     const handleDoneRef = useRef(handleDone);
     useEffect(() => {
         handleDoneRef.current = handleDone;
     }, [handleDone]);
+
+    // The server lease is authoritative. If this page disappears, heartbeats
+    // stop and the relay is forced OFF after the short lease timeout.
+    useEffect(() => {
+        let active = true;
+        const heartbeat = async () => {
+            try {
+                await heartbeatCoin(macAddress, lease.lease_token);
+            } catch (err) {
+                if (active) console.error("Coin session heartbeat failed:", err);
+            }
+        };
+        const interval = setInterval(heartbeat, (lease.heartbeat_seconds || 3) * 1000);
+
+        return () => {
+            active = false;
+            clearInterval(interval);
+            if (!doneCalledRef.current) {
+                const url = `/api/v1/coin/close/${encodeURIComponent(macAddress)}?lease_token=${encodeURIComponent(lease.lease_token)}`;
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon(url, new Blob([], { type: "text/plain" }));
+                } else {
+                    releaseCoin(macAddress, lease.lease_token).catch(() => {});
+                }
+            }
+        };
+    }, [lease.heartbeat_seconds, lease.lease_token, macAddress]);
 
     // Countdown timer
     useEffect(() => {

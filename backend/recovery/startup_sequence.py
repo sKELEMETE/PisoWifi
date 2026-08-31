@@ -36,6 +36,10 @@ class StartupSequence:
         try:
             pending_macs = [r[0] for r in db.query(PendingCoin.mac).distinct().all()]
             if not pending_macs:
+                # Browser leases never survive a backend restart. The relay was
+                # already initialized OFF, so require a fresh activation token.
+                db.query(CoinReservation).delete()
+                db.commit()
                 return
 
             logger.info("Found %d MAC(s) with pending coins on startup. Reconciling...", len(pending_macs))
@@ -68,6 +72,8 @@ class StartupSequence:
                     except Exception as exc:
                         db.rollback()
                         logger.error("Startup Recovery: Failed to reconcile coins for %s: %s", mac, exc)
+            db.query(CoinReservation).delete()
+            db.commit()
         except Exception as exc:
             logger.error("Startup Recovery: DB error during coin reconciliation: %s", exc)
         finally:

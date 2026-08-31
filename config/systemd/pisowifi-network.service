@@ -1,0 +1,14 @@
+[Unit]
+Description=PisoWiFi captive LAN address and forwarding
+After=network-pre.target
+Before=dnsmasq.service nginx.service pisowifi-backend.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/ip link set dev enxc817f552a5c6 up
+ExecStart=/usr/sbin/ip address replace 10.0.0.1/24 dev enxc817f552a5c6
+ExecStart=/usr/sbin/sysctl -w net.ipv4.ip_forward=1
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

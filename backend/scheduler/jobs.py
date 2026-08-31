@@ -27,10 +27,17 @@ def check_expired_reservations(db):
 
     now = get_utc_now()
     expired = db.query(CoinReservation).filter(CoinReservation.expires_at <= now).all()
+    if expired:
+        from services.hardware_service import hardware_service
+        try:
+            hardware_service.set_accepting(False)
+        except Exception as exc:
+            logger.error("Failed to force coin relay OFF for expired lease: %s", exc)
     client_repo = ClientRepository(db)
     for res in expired:
         mac = res.mac
-        logger.info("Scheduler: reservation timed out for %s. Finalizing...", mac)
+        masked_mac = f"**:**:**:**:{mac[-5:]}"
+        logger.info("Scheduler: coin lease timed out for %s. Finalizing...", masked_mac)
         try:
             pending_records = db.query(PendingCoin).filter(PendingCoin.mac == mac).all()
             coins = [r.amount for r in pending_records]
@@ -55,10 +62,20 @@ def check_expired_reservations(db):
                     except Exception as auth_exc:
                         logger.error("Scheduler: failed to authorize %s after coin processing: %s", mac, auth_exc)
 
-            logger.info("Scheduler: slot successfully released for %s.", mac)
+            logger.info("Scheduler: slot successfully released for %s.", masked_mac)
         except Exception as exc:
             db.rollback()
-            logger.error("Scheduler: failed to finalize expired reservation for %s: %s", mac, exc)
+            logger.error("Scheduler: failed to finalize expired reservation for %s: %s", masked_mac, exc)
+
+
+def check_expired_reservations_job():
+    db = SessionLocal()
+    try:
+        check_expired_reservations(db)
+    except Exception as exc:
+        logger.error("Coin lease expiration check failed: %s", exc)
+    finally:
+        db.close()
 
 
 def expire_sessions():
@@ -131,12 +148,6 @@ def expire_sessions():
 
         db.commit()
 
-
-        # Check and finalize expired coin acceptor reservations
-        try:
-            check_expired_reservations(db)
-        except Exception as exc:
-            logger.error("Failed checking expired reservations: %s", exc)
     except Exception as e:
         logger.error("Session expiration lookup failed: %s", e)
     finally:

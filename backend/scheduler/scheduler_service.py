@@ -4,6 +4,7 @@ import config
 
 from scheduler.jobs import (
     backup,
+    check_expired_reservations_job,
     expire_sessions,
     sync_firewall,
 )
@@ -21,6 +22,14 @@ class SchedulerService:
             "interval",
             seconds=interval,
             id="expire_sessions",
+        )
+
+        self.scheduler.add_job(
+            check_expired_reservations_job,
+            "interval",
+            seconds=config.COIN_LEASE_CHECK_INTERVAL,
+            id="expire_coin_lease",
+            max_instances=1,
         )
 
         self.scheduler.add_job(

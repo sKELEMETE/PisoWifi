@@ -19,12 +19,16 @@ export default function ActiveSessionView({
     const setSession = useSessionStore(state => state.setSession);
     const setPortalState = usePortalStore(state => state.setPortalState);
     const [showPopup, setShowPopup] = useState(false);
+    const [coinLease, setCoinLease] = useState(null);
     const [showVoucher, setShowVoucher] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const macAddress = session?.mac_address;
 
-    const handleClose = useCallback(() => setShowPopup(false), []);
+    const handleClose = useCallback(() => {
+        setShowPopup(false);
+        setCoinLease(null);
+    }, []);
 
     async function handlePause() {
         if (!session?.mac_address) {
@@ -60,6 +64,7 @@ export default function ActiveSessionView({
             const res = await activateCoin(macAddress);
             if (res.success) {
                 soundManager.playExplosionThenAlarm();
+                setCoinLease(res.data);
                 setShowPopup(true);
             } else {
                 setErrorMsg(res.message || "Another customer is currently inserting coins. Please wait.");
@@ -124,9 +129,10 @@ export default function ActiveSessionView({
                 </Button>
             )}
 
-            {showPopup && macAddress && (
+            {showPopup && macAddress && coinLease?.lease_token && (
                 <CoinPopup 
                     macAddress={macAddress} 
+                    lease={coinLease}
                     onClose={handleClose} 
                 />
             )}

@@ -1,5 +1,21 @@
 # Architectural Design Decisions
 
+## [2026-08-31] Dual Arduino/GPIO coin backend and authoritative page lease
+
+### Context
+Orange Pi PC GPIO is 3.3V-only, the 12V selector pulse output is electrically unknown, libgpiod chip numbering is runtime-dependent, and browser unload events are unreliable. Existing installations already depend on Arduino serial messages and the database-backed single-customer reservation.
+
+### Decision
+- Preserve Arduino as the default and add a provider-selected libgpiod v2 input plus separate relay power controller.
+- Require an exact Orange Pi PC + Debian 13 Trixie match, then resolve maintained SoC names against live `gpioinfo`; save chip path, offset, SoC name, and physical pin together.
+- Recommend physical 29/PA7 for edge input and 33/PA9 for relay output based on Orange Pi's maintained H3 table and upstream Linux pinctrl capabilities, while rejecting used/unresolved lines.
+- Extend the existing reservation with an opaque lease ID, request IP, and heartbeat timestamp. A 3-second frontend heartbeat renews a 12-second server lease; expiry, close, startup, shutdown, and failures force relay OFF.
+- Capture the lease generation at a GPIO burst's first edge and require it at insertion, preventing stale events from crossing ownership.
+- Treat opto/level isolation and a verified relay driver as administrator-confirmed external requirements; software never infers electrical safety.
+
+### Consequences
+No second accounting or lock system exists. Arduino reconnect behavior remains intact, GPIO unit tests require no hardware, and real relay/pulse behavior remains an explicit on-device acceptance step. Unknown boards and uncalibrated pulse counts fail closed.
+
 This document logs significant architectural design decisions made during the evolution of the PisoWiFi platform.
 
 ## [2026-07-21] Production Certification — Weak JWT Detection & Voucher USED Guard

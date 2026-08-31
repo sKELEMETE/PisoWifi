@@ -10,7 +10,11 @@ logging.basicConfig(
     ]
 )
 
-from coin_serial.coin_listener import CoinListener
+import config
+from coin_serial.coin_listener import CoinListener, GpioCoinListener
 
-listener = CoinListener()
+if config.COIN_INTERFACE == "gpio":
+    listener = GpioCoinListener()
+else:
+    listener = CoinListener()
 listener.run()

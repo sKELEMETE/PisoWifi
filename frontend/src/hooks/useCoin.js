@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 
 import { getCoinStatus } from "../api/coinApi";
 
-export default function useCoin(active = false) {
+export default function useCoin(active = false, macAddress = null, leaseToken = null) {
     const [coinStatus, setCoinStatus] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [initialAmount, setInitialAmount] = useState(null);
 
     useEffect(() => {
-        if (!active) {
+        if (!active || !macAddress || !leaseToken) {
             setCoinStatus(null);
             setInitialAmount(null);
             setError(null);
@@ -21,7 +21,7 @@ export default function useCoin(active = false) {
 
         async function loadCoinStatus() {
             try {
-                const response = await getCoinStatus();
+                const response = await getCoinStatus(macAddress, leaseToken);
                 const data = response.data;
 
                 if (data && typeof data.total_amount === "number") {
@@ -52,7 +52,7 @@ export default function useCoin(active = false) {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [active]);
+    }, [active, macAddress, leaseToken]);
 
     const displayAmount = (coinStatus && typeof coinStatus.total_amount === "number" && initialAmount !== null)
         ? Math.max(0, coinStatus.total_amount - initialAmount)
@@ -64,4 +64,3 @@ export default function useCoin(active = false) {
         error,
     };
 }
-

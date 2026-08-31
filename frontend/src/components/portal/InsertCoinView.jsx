@@ -8,13 +8,17 @@ import VoucherForm from "../voucher/VoucherForm";
 
 export default function InsertCoinView() {
     const [showPopup, setShowPopup] = useState(false);
+    const [coinLease, setCoinLease] = useState(null);
     const [showVoucher, setShowVoucher] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const client = useSessionStore((state) => state.client);
     const macAddress = client?.mac_address || client?.mac;
 
-    const handleClose = useCallback(() => setShowPopup(false), []);
+    const handleClose = useCallback(() => {
+        setShowPopup(false);
+        setCoinLease(null);
+    }, []);
 
     const handleInsertCoinClick = async () => {
         if (!macAddress) return;
@@ -24,6 +28,7 @@ export default function InsertCoinView() {
             const res = await activateCoin(macAddress);
             if (res.success) {
                 soundManager.playExplosionThenAlarm();
+                setCoinLease(res.data);
                 setShowPopup(true);
             } else {
                 setErrorMsg(res.message || "Another customer is currently inserting coins. Please wait.");
@@ -77,9 +82,10 @@ export default function InsertCoinView() {
                 <VoucherForm macAddress={macAddress} />
             )}
 
-            {showPopup && macAddress && (
+            {showPopup && macAddress && coinLease?.lease_token && (
                 <CoinPopup 
                     macAddress={macAddress} 
+                    lease={coinLease}
                     onClose={handleClose} 
                 />
             )}

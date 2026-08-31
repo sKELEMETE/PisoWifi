@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import os
 import shutil
+import json
 
 # Load system-wide environment configuration
 if os.path.exists("/opt/pisowifi/.env"):
@@ -9,7 +10,9 @@ if os.path.exists("/opt/pisowifi/.env"):
 # Load project-local backend environment configuration
 local_env = os.path.join(os.path.dirname(__file__), ".env")
 if os.path.exists(local_env):
-    load_dotenv(local_env, interpolate=False, override=True)
+    # Explicit process/systemd environment values take precedence over a
+    # developer checkout's convenience file.
+    load_dotenv(local_env, interpolate=False, override=False)
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", os.getenv("PISOWIFI_ENVIRONMENT", "production")).lower()
 DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
@@ -82,6 +85,44 @@ CORS_ORIGINS = [
 ]
 
 COIN_RESERVATION_TIMEOUT = int(os.getenv("COIN_RESERVATION_TIMEOUT", "30"))
+COIN_INTERFACE = os.getenv("COIN_INTERFACE", "arduino").strip().lower()
+COIN_SESSION_LEASE_SECONDS = int(os.getenv("COIN_SESSION_LEASE_SECONDS", "12"))
+COIN_HEARTBEAT_SECONDS = int(os.getenv("COIN_HEARTBEAT_SECONDS", "3"))
+COIN_LEASE_CHECK_INTERVAL = int(os.getenv("COIN_LEASE_CHECK_INTERVAL", "1"))
+COIN_CURRENCY_SYMBOL = os.getenv("COIN_CURRENCY_SYMBOL", "₱")
+
+GPIO_COIN_CHIP = os.getenv("GPIO_COIN_CHIP", "")
+GPIO_COIN_LINE = int(os.getenv("GPIO_COIN_LINE", "-1"))
+GPIO_COIN_NAME = os.getenv("GPIO_COIN_NAME", "")
+GPIO_COIN_PHYSICAL_PIN = int(os.getenv("GPIO_COIN_PHYSICAL_PIN", "0"))
+GPIO_COIN_EDGE = os.getenv("GPIO_COIN_EDGE", "falling").strip().lower()
+GPIO_RELAY_CHIP = os.getenv("GPIO_RELAY_CHIP", "")
+GPIO_RELAY_LINE = int(os.getenv("GPIO_RELAY_LINE", "-1"))
+GPIO_RELAY_NAME = os.getenv("GPIO_RELAY_NAME", "")
+GPIO_RELAY_PHYSICAL_PIN = int(os.getenv("GPIO_RELAY_PHYSICAL_PIN", "0"))
+GPIO_RELAY_ACTIVE_LOW = os.getenv("GPIO_RELAY_ACTIVE_LOW", "true").lower() in ("true", "1", "yes")
+COIN_DEBOUNCE_MS = int(os.getenv("COIN_DEBOUNCE_MS", "20"))
+COIN_INTER_PULSE_GAP_MS = int(os.getenv("COIN_INTER_PULSE_GAP_MS", "250"))
+
+if COIN_INTERFACE not in ("arduino", "gpio"):
+    raise RuntimeError("COIN_INTERFACE must be 'arduino' or 'gpio'")
+if COIN_HEARTBEAT_SECONDS <= 0 or COIN_SESSION_LEASE_SECONDS <= COIN_HEARTBEAT_SECONDS:
+    raise RuntimeError("COIN_SESSION_LEASE_SECONDS must be greater than COIN_HEARTBEAT_SECONDS")
+
+
+def _load_pulse_mapping() -> dict[int, int]:
+    raw = os.getenv("COIN_PULSE_MAP", "{}")
+    try:
+        parsed = json.loads(raw)
+        mapping = {int(pulses): int(value) for pulses, value in parsed.items()}
+        if any(pulses <= 0 or value <= 0 or value > 1000 for pulses, value in mapping.items()):
+            raise ValueError("pulse counts must be positive and values must be between 1 and 1000")
+        return mapping
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Invalid COIN_PULSE_MAP: {exc}") from exc
+
+
+COIN_PULSE_MAP = _load_pulse_mapping()
 
 # Centralized pricing table: amount -> (minutes, pause_allowed)
 PRICING_TABLE = {

@@ -43,6 +43,12 @@ async def lifespan(app: FastAPI):
 
     logger = logging.getLogger(__name__)
 
+    # GPIO mode must acquire the relay output at its configured OFF level before
+    # any reservation can be accepted. Failure is fatal because powering the
+    # selector safely is part of the coin accounting boundary.
+    from services.hardware_service import hardware_service
+    hardware_service.start()
+
     # Set up root tc qdiscs for bandwidth shaping (idempotent)
     try:
         from services.bandwidth_service import BandwidthService
@@ -138,6 +144,7 @@ async def lifespan(app: FastAPI):
         app.state.health_updater_task.cancel()
 
     scheduler.stop()
+    hardware_service.shutdown()
 
 app = FastAPI(
     title="PisoWiFi API",

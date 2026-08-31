@@ -57,8 +57,8 @@ class DoctorCheck:
         self.run_check("Firewall Configuration", self.check_firewall, is_critical=True)
         # 7. Check Bandwidth control
         self.run_check("Traffic Control (tc)", self.check_bandwidth, is_critical=False)
-        # 8. Check Serial Acceptor Connection
-        self.run_check("Hardware Serial Connection", self.check_serial, is_critical=False)
+        # 8. Check configured coin hardware backend
+        self.run_check("Coin Hardware", self.check_coin_hardware, is_critical=False)
         # 9. Check Templates and Generated configs
         self.run_check("Configuration Templates", self.check_templates, is_critical=True)
         # 10. Check File Permissions
@@ -126,7 +126,7 @@ class DoctorCheck:
         return "healthy", "Core queuing/shaping kernel modules are loaded."
 
     def check_system_services(self) -> tuple[str, str]:
-        services = ["nginx", "dnsmasq", "hostapd"]
+        services = ["nginx", "dnsmasq", "nftables", "pisowifi-network", "pisowifi-backend", "pisowifi-coin"]
         inactive = []
         systemctl_path = shutil.which("systemctl") or "/usr/bin/systemctl"
         for s in services:
@@ -135,7 +135,7 @@ class DoctorCheck:
                 inactive.append(s)
         if inactive:
             return "warning", f"System services inactive: {', '.join(inactive)}. Captive portal functionality might be offline."
-        return "healthy", "Nginx, Dnsmasq, and Hostapd system services are active."
+        return "healthy", "PisoWiFi application, network, Nginx, Dnsmasq, and Nftables services are active."
 
     def check_firewall(self) -> tuple[str, str]:
         nft_path = shutil.which("nft")
@@ -172,9 +172,40 @@ class DoctorCheck:
             return "healthy", "Mock serial driver is active."
         if port == "AUTO":
             return "healthy", "Serial port auto-detection configured."
+        if not port:
+            return "warning", "Serial port is not configured; use SERIAL_PORT=AUTO or a device path."
         if not os.path.exists(port):
             return "warning", f"Configured serial device port '{port}' not found on host."
         return "healthy", f"Serial comport '{port}' is accessible."
+
+    def check_coin_hardware(self) -> tuple[str, str]:
+        import config as app_config
+        if app_config.COIN_INTERFACE == "arduino":
+            return self.check_serial()
+        if app_config.COIN_INTERFACE != "gpio":
+            return "critical", f"Unknown COIN_INTERFACE '{app_config.COIN_INTERFACE}'."
+        try:
+            from installer.hardware import detect_host, is_verified_orange_pi_pc, read_gpio_lines
+            host = detect_host()
+            if not is_verified_orange_pi_pc(host):
+                return "critical", f"GPIO profile mismatch: detected {host['board']} on {host['os']}."
+            lines = read_gpio_lines()
+            expected = [
+                (app_config.GPIO_COIN_CHIP, app_config.GPIO_COIN_LINE, app_config.GPIO_COIN_NAME),
+                (app_config.GPIO_RELAY_CHIP, app_config.GPIO_RELAY_LINE, app_config.GPIO_RELAY_NAME),
+            ]
+            missing = [
+                name for chip, offset, name in expected
+                if not any(line["chip"] == chip and line["offset"] == offset and line["name"].upper() == name.upper() for line in lines)
+            ]
+            if missing:
+                return "critical", f"Configured GPIO line(s) not found: {', '.join(missing)}."
+            mapping = app_config.COIN_PULSE_MAP
+            if not mapping:
+                return "warning", "GPIO lines exist, but no calibrated pulse mapping is configured."
+            return "healthy", f"GPIO input/relay lines exist; {len(mapping)} pulse mapping(s) configured."
+        except Exception as exc:
+            return "critical", f"GPIO validation failed: {exc}"
 
     def check_templates(self) -> tuple[str, str]:
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

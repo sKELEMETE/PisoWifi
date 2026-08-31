@@ -28,6 +28,12 @@ def migrate_env(base_dir: str) -> None:
         "SERIAL_TIMEOUT": "1",
         "SERIAL_RECONNECT_INTERVAL": "5",
         "SERIAL_DEBOUNCE_MS": "250",
+        "COIN_INTERFACE": "arduino",
+        "COIN_SESSION_LEASE_SECONDS": "12",
+        "COIN_HEARTBEAT_SECONDS": "3",
+        "COIN_DEBOUNCE_MS": "20",
+        "COIN_INTER_PULSE_GAP_MS": "250",
+        "COIN_PULSE_MAP": "{}",
         "PISOWIFI_DATABASE_TYPE": "mysql",
         "PISOWIFI_BACKEND_PORT": "8000",
         "CAPTIVE_PORTAL_PORT": "80",
@@ -154,6 +160,7 @@ def run_upgrade(base_dir: str) -> bool:
             "nft_set_name": nft_set_name,
             "backend_port": config.BACKEND_PORT,
             "captive_portal_port": config.CAPTIVE_PORTAL_PORT,
+            "gateway_prefix": config.SUBNET_CIDR.rsplit("/", 1)[-1] if "/" in config.SUBNET_CIDR else "24",
             "path_nft": config.PATH_NFT,
             "path_tc": config.PATH_TC,
             "path_ip": config.PATH_IP,
@@ -177,6 +184,7 @@ def run_upgrade(base_dir: str) -> bool:
         # 5. Reload systemd & Restart services
         logger.info("Step 5: Restarting system services...")
         subprocess.run(["systemctl", "daemon-reload"], check=True)
+        subprocess.run(["systemctl", "enable", "--now", "pisowifi-network"], check=True)
         subprocess.run(["systemctl", "restart", "pisowifi-backend", "pisowifi-coin"], check=True)
         logger.info("Services restarted successfully.")
 

@@ -24,6 +24,10 @@ def main():
     # Upgrade subcommand
     subparsers.add_parser("upgrade", help="Perform automated PisoWiFi upgrade workflow")
 
+    subparsers.add_parser("hardware-status", help="Show configured and live coin hardware state")
+    hardware_test_parser = subparsers.add_parser("hardware-test", help="Interactively test GPIO relay and coin input")
+    hardware_test_parser.add_argument("--calibrate", action="store_true", help="Capture and save denomination pulse mappings")
+
     args = parser.parse_args()
 
     if args.command == "version":
@@ -36,6 +40,12 @@ def main():
         from installer.upgrade import run_upgrade
         success = run_upgrade(BASE_DIR)
         sys.exit(0 if success else 1)
+    elif args.command == "hardware-status":
+        from installer.hardware_cli import hardware_status
+        sys.exit(0 if hardware_status() else 1)
+    elif args.command == "hardware-test":
+        from installer.hardware_cli import hardware_test
+        sys.exit(0 if hardware_test(args.calibrate) else 1)
 
 
 if __name__ == "__main__":

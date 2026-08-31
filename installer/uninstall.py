@@ -18,7 +18,7 @@ def run_uninstall(base_dir: str, preserve_data: bool = True) -> None:
     print("==================================================")
 
     # 1. Stop and disable services
-    services = ["pisowifi-backend", "pisowifi-coin"]
+    services = ["pisowifi-backend", "pisowifi-coin", "pisowifi-network"]
     for service in services:
         print(f"Stopping service {service}...")
         subprocess.run(["systemctl", "stop", service], check=False)
@@ -46,6 +46,11 @@ def run_uninstall(base_dir: str, preserve_data: bool = True) -> None:
     if os.path.exists(nginx_avail):
         os.remove(nginx_avail)
         print(f"Removed Nginx configuration: {nginx_avail}")
+    nginx_default = "/etc/nginx/sites-available/default"
+    nginx_default_link = "/etc/nginx/sites-enabled/default"
+    if os.path.exists(nginx_default) and not os.path.exists(nginx_default_link):
+        os.symlink(nginx_default, nginx_default_link)
+        print("Restored default Nginx site link.")
 
     # 3. Remove Dnsmasq config
     dnsmasq_conf = "/etc/dnsmasq.d/pisowifi.conf"

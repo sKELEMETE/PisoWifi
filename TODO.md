@@ -1,5 +1,12 @@
 # TODO List
 
+## Orange Pi PC on-device acceptance
+
+- [ ] Run the printed relay test on the actual 5V module through a verified 3.3V-safe driver/interface.
+- [ ] Calibrate every enabled denomination through the final opto-isolated pulse circuit.
+- [ ] Verify relay OFF at boot, graceful stop, backend/coin-listener restart, tab crash, and Wi-Fi loss.
+- [ ] Record the actual Debian 13 architecture and live gpiochip paths selected by the installer; do not pre-assume `armhf` or `/dev/gpiochip0`.
+
 This file tracks the upcoming phases and tasks required to transition PisoWiFi into a portable production platform.
 
 ## Remaining Roadmap Phases
@@ -72,5 +79,4 @@ This file tracks the upcoming phases and tasks required to transition PisoWiFi i
   - Build CLI credential recovery tool ([manage.py](file:///opt/pisowifi/backend/manage.py)) supporting `check`, `set-username`, and `reset-password`.
   - Overhaul Voucher UI into Apple 2026 Liquid Glass design language and mount `AdminSettings.jsx` security tab in Dashboard.
   - Expand test suite to 38 passing tests ([test_credentials_management.py](file:///opt/pisowifi/backend/tests/api/test_credentials_management.py)).
-
 
