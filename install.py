@@ -65,6 +65,22 @@ def install_application_dependencies(base_dir: str, dry_run: bool) -> None:
             os.makedirs(os.path.join(base_dir, directory), exist_ok=True)
 
 
+def activate_system_services(dry_run: bool = False) -> None:
+    services = (
+        "pisowifi-network",
+        "nftables",
+        "dnsmasq",
+        "nginx",
+        "pisowifi-backend",
+        "pisowifi-coin",
+    )
+    run_checked(["systemctl", "daemon-reload"], dry_run)
+    run_checked(["systemctl", "enable", *services], dry_run)
+    run_checked(["nginx", "-t"], dry_run)
+    for service in services:
+        run_checked(["systemctl", "restart", service], dry_run)
+
+
 def read_env(path: str) -> dict[str, str]:
     values = {}
     if not os.path.exists(path):
@@ -383,24 +399,12 @@ def main():
                     os.chmod(cli_src, 0o755)
                     rollback_mgr.create_symlink(cli_src, cli_dst)
 
-                # Reload systemd and restart backend services
-                print("Reloading systemd daemons...")
+                # Validate and explicitly reload services that apt may already
+                # have started with their distribution-default configuration.
+                print("Validating configuration and restarting services...")
                 install_application_dependencies(args.base_dir, args.dry_run)
-                subprocess.run(["systemctl", "daemon-reload"], check=True)
-                subprocess.run(["systemctl", "enable", "--now", "pisowifi-network", "nginx", "dnsmasq", "nftables", "pisowifi-backend", "pisowifi-coin"], check=True)
-                print("Restarting systemd backend services...")
-                ret_backend = subprocess.run(["systemctl", "restart", "pisowifi-backend"], check=False)
-                ret_coin = subprocess.run(["systemctl", "restart", "pisowifi-coin"], check=False)
-                all_ok = ret_backend.returncode == 0 and ret_coin.returncode == 0
-                if all_ok:
-                    print("[OK] Deployment configuration installed and services restarted successfully!")
-                else:
-                    failed = []
-                    if ret_backend.returncode != 0:
-                        failed.append("pisowifi-backend")
-                    if ret_coin.returncode != 0:
-                        failed.append("pisowifi-coin")
-                    print(f"[Warning] Services installed but restart failed for: {', '.join(failed)}")
+                activate_system_services()
+                print("[OK] Deployment configuration installed and services restarted successfully!")
 
                 if hardware_summary.get("interface") == "gpio":
                     print_completion_hardware(

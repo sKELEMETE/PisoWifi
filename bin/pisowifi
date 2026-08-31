@@ -1,6 +1,7 @@
 #!/bin/bash
-# Find base directory of PisoWiFi installation
-BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve the installed symlink before finding the application directory.
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+BASE_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
 
 # Run CLI using the python virtual environment interpreter
 exec "$BASE_DIR/backend/venv/bin/python" "$BASE_DIR/installer/cli.py" "$@"
