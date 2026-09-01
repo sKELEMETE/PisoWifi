@@ -7,7 +7,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.insert(0, PROJECT_ROOT)
 
 from installer import hardware
-from installer.hardware import is_verified_orange_pi_pc, line_matches_config, read_gpio_lines, resolve_profile_pin
+from installer.hardware import is_verified_orange_pi_pc, line_matches_config, powered_relay, read_gpio_lines, resolve_profile_pin
 
 
 def test_orange_pi_pc_gpio_profile_resolves_live_chip_offsets():
@@ -78,3 +78,46 @@ def test_unnamed_armbian_h3_lines_resolve_by_verified_controller_and_offset(monk
     assert (coin["chip"], coin["offset"], coin["gpio_name"]) == ("/dev/gpiochip0", 7, "PA7")
     assert (relay["chip"], relay["offset"], relay["gpio_name"]) == ("/dev/gpiochip0", 9, "PA9")
     assert line_matches_config(lines[0], "/dev/gpiochip0", 7, "PA7")
+
+
+@pytest.mark.parametrize("active_low,off,on", [(True, 1, 0), (False, 0, 1)])
+def test_calibration_relay_is_powered_and_always_returns_off(active_low, off, on):
+    class Direction:
+        OUTPUT = "output"
+
+    class Value:
+        INACTIVE = 0
+        ACTIVE = 1
+
+    class Request:
+        def __init__(self):
+            self.values = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def set_value(self, _offset, value):
+            self.values.append(value)
+
+    class Gpiod:
+        def __init__(self):
+            self.request = Request()
+            self.initial = None
+
+        def LineSettings(self, **kwargs):
+            self.initial = kwargs["output_value"]
+            return kwargs
+
+        def request_lines(self, *_args, **_kwargs):
+            return self.request
+
+    api = Gpiod()
+    with pytest.raises(RuntimeError):
+        with powered_relay("/dev/gpiochip0", 9, active_low, (api, Direction, Value)):
+            assert api.initial == off
+            assert api.request.values == [on]
+            raise RuntimeError("calibration failed")
+    assert api.request.values == [on, off]

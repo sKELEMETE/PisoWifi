@@ -7,6 +7,7 @@ from installer.hardware import (
     capture_pulse_burst,
     detect_host,
     is_verified_orange_pi_pc,
+    powered_relay,
     read_gpio_lines,
     resolve_profile_pin,
     test_relay,
@@ -133,7 +134,9 @@ def run_hardware_wizard(non_interactive: bool, skip_hardware_test: bool, request
             currency = input("Currency symbol [₱]: ").strip() or "₱"
             if len(currency) > 8 or any(char in currency for char in "\r\n="):
                 raise ValueError("Currency symbol must be 1-8 characters and cannot contain '=' or a newline")
-            mapping = _calibrate(coin_pin, edge, debounce_ms, gap_ms, currency)
+            print("Powering the coin selector during calibration...")
+            with powered_relay(relay_pin["chip"], relay_pin["offset"], active_low):
+                mapping = _calibrate(coin_pin, edge, debounce_ms, gap_ms, currency)
             coin_tested = bool(mapping)
         else:
             currency = "₱"

@@ -7,7 +7,7 @@ import sys
 
 import httpx
 
-from installer.hardware import capture_pulse_burst, detect_host, line_matches_config, read_gpio_lines, test_relay
+from installer.hardware import capture_pulse_burst, detect_host, line_matches_config, powered_relay, read_gpio_lines, test_relay
 from installer.hardware_wizard import SAFETY_WARNING, _calibrate, _yes_no
 
 
@@ -94,29 +94,31 @@ def hardware_test(calibrate: bool = False) -> bool:
     try:
         test_relay(config.GPIO_RELAY_CHIP, config.GPIO_RELAY_LINE, config.GPIO_RELAY_ACTIVE_LOW)
         relay_ok = _yes_no("Did the relay switch ON and return OFF correctly?")
-        if calibrate:
-            mapping = _calibrate(
-                {"chip": config.GPIO_COIN_CHIP, "offset": config.GPIO_COIN_LINE},
-                config.GPIO_COIN_EDGE,
-                config.COIN_DEBOUNCE_MS,
-                config.COIN_INTER_PULSE_GAP_MS,
-                config.COIN_CURRENCY_SYMBOL,
-            )
-            if mapping:
-                _update_mapping(config, mapping)
-                print("Calibration mapping saved.")
-            coin_ok = bool(mapping)
-        else:
-            print("Insert one test coin now; only the isolated input is observed and no credit is created.")
-            pulses = capture_pulse_burst(
-                config.GPIO_COIN_CHIP,
-                config.GPIO_COIN_LINE,
-                config.GPIO_COIN_EDGE,
-                config.COIN_DEBOUNCE_MS,
-                config.COIN_INTER_PULSE_GAP_MS,
-            )
-            coin_ok = pulses > 0
-            print(f"Observed pulse count: {pulses}" if coin_ok else "No pulse observed.")
+        print("Powering the coin selector during pulse testing...")
+        with powered_relay(config.GPIO_RELAY_CHIP, config.GPIO_RELAY_LINE, config.GPIO_RELAY_ACTIVE_LOW):
+            if calibrate:
+                mapping = _calibrate(
+                    {"chip": config.GPIO_COIN_CHIP, "offset": config.GPIO_COIN_LINE},
+                    config.GPIO_COIN_EDGE,
+                    config.COIN_DEBOUNCE_MS,
+                    config.COIN_INTER_PULSE_GAP_MS,
+                    config.COIN_CURRENCY_SYMBOL,
+                )
+                if mapping:
+                    _update_mapping(config, mapping)
+                    print("Calibration mapping saved.")
+                coin_ok = bool(mapping)
+            else:
+                print("Insert one test coin now; only the isolated input is observed and no credit is created.")
+                pulses = capture_pulse_burst(
+                    config.GPIO_COIN_CHIP,
+                    config.GPIO_COIN_LINE,
+                    config.GPIO_COIN_EDGE,
+                    config.COIN_DEBOUNCE_MS,
+                    config.COIN_INTER_PULSE_GAP_MS,
+                )
+                coin_ok = pulses > 0
+                print(f"Observed pulse count: {pulses}" if coin_ok else "No pulse observed.")
         return relay_ok and coin_ok
     finally:
         subprocess.run(["systemctl", "start", "pisowifi-backend", "pisowifi-coin"], check=False)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import timedelta
+from contextlib import contextmanager
 import os
 import platform
 import re
@@ -211,5 +212,30 @@ def test_relay(chip: str, offset: int, active_low: bool, prompt=input) -> bool:
             request.set_value(offset, off)
             prompt("Relay is OFF. Press Enter after verifying its state: ")
             return True
+        finally:
+            request.set_value(offset, off)
+
+
+@contextmanager
+def powered_relay(chip: str, offset: int, active_low: bool, gpio_api=None):
+    if gpio_api is None:
+        try:
+            import gpiod
+            from gpiod.line import Direction, Value
+        except ImportError as exc:
+            raise RuntimeError("python3-libgpiod is not installed") from exc
+    else:
+        gpiod, Direction, Value = gpio_api
+    off = Value.ACTIVE if active_low else Value.INACTIVE
+    on = Value.INACTIVE if active_low else Value.ACTIVE
+    settings = gpiod.LineSettings(direction=Direction.OUTPUT, output_value=off)
+    with gpiod.request_lines(
+        chip,
+        consumer="pisowifi-calibration-relay",
+        config={offset: settings},
+    ) as request:
+        try:
+            request.set_value(offset, on)
+            yield
         finally:
             request.set_value(offset, off)
