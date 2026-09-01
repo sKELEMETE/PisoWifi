@@ -35,6 +35,8 @@ ORANGE_PI_PC_PROFILE = {
     "pins": ORANGE_PI_PC_PINS,
 }
 
+H3_MAIN_GPIO_LABEL = "1c20800.pinctrl"
+
 
 def _read_text(path: str) -> str:
     try:
@@ -74,6 +76,24 @@ def is_verified_orange_pi_pc(host: dict[str, str]) -> bool:
     return board_ok and host["os_id"] == "debian" and host["version_id"] == "13" and host["codename"] == "trixie"
 
 
+def read_gpio_chips() -> dict[str, dict]:
+    gpiodetect = shutil.which("gpiodetect")
+    if not gpiodetect:
+        return {}
+    result = subprocess.run([gpiodetect], capture_output=True, text=True)
+    if result.returncode != 0:
+        return {}
+    chips = {}
+    for raw in result.stdout.splitlines():
+        match = re.match(r"\s*(gpiochip\d+)\s+\[([^]]+)]\s+\((\d+)\s+lines\)", raw)
+        if match:
+            chips[f"/dev/{match.group(1)}"] = {
+                "label": match.group(2),
+                "line_count": int(match.group(3)),
+            }
+    return chips
+
+
 def read_gpio_lines() -> list[dict]:
     gpioinfo = shutil.which("gpioinfo")
     if not gpioinfo:
@@ -81,6 +101,7 @@ def read_gpio_lines() -> list[dict]:
     result = subprocess.run([gpioinfo], capture_output=True, text=True)
     if result.returncode != 0:
         return []
+    chips = read_gpio_chips()
     lines = []
     chip = None
     for raw in result.stdout.splitlines():
@@ -91,21 +112,48 @@ def read_gpio_lines() -> list[dict]:
         match = re.match(r'\s*line\s+(\d+):\s+"?([^"\s]+)"?\s+(.*)', raw)
         if chip and match:
             details = match.group(3)
+            old_consumer = details.lstrip().startswith('"')
             lines.append({
                 "chip": chip,
                 "offset": int(match.group(1)),
                 "name": match.group(2),
-                "available": "unused" in details and "[used]" not in details,
+                "controller": chips.get(chip, {}).get("label", ""),
+                "line_count": chips.get(chip, {}).get("line_count", 0),
+                "available": "consumer=" not in details and "[used]" not in details and not old_consumer,
                 "details": details.strip(),
             })
     return lines
+
+
+def line_matches_config(line: dict, chip: str, offset: int, gpio_name: str) -> bool:
+    if line["chip"] != chip or line["offset"] != offset:
+        return False
+    if line["name"].upper() == gpio_name.upper():
+        return True
+    pin = next((item for item in ORANGE_PI_PC_PINS.values() if item.gpio_name == gpio_name.upper()), None)
+    return bool(
+        pin
+        and line["name"].lower() == "unnamed"
+        and line.get("controller") == H3_MAIN_GPIO_LABEL
+        and line.get("line_count") == 224
+        and offset == pin.legacy_linux_gpio
+    )
 
 
 def resolve_profile_pin(physical_pin: int, lines: list[dict] | None = None) -> dict:
     pin = ORANGE_PI_PC_PINS.get(physical_pin)
     if not pin:
         raise ValueError(f"Physical pin {physical_pin} is not in the maintained Orange Pi PC safe-GPIO list")
-    matches = [line for line in (lines or read_gpio_lines()) if line["name"].upper() == pin.gpio_name]
+    live_lines = lines or read_gpio_lines()
+    matches = [line for line in live_lines if line["name"].upper() == pin.gpio_name]
+    if not matches:
+        matches = [
+            line for line in live_lines
+            if line["name"].lower() == "unnamed"
+            and line.get("controller") == H3_MAIN_GPIO_LABEL
+            and line.get("line_count") == 224
+            and line["offset"] == pin.legacy_linux_gpio
+        ]
     if len(matches) != 1:
         raise RuntimeError(f"Could not uniquely resolve {pin.gpio_name} from live gpioinfo output")
     resolved = {**asdict(pin), **matches[0]}

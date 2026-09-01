@@ -7,7 +7,7 @@ import sys
 
 import httpx
 
-from installer.hardware import capture_pulse_burst, detect_host, read_gpio_lines, test_relay
+from installer.hardware import capture_pulse_burst, detect_host, line_matches_config, read_gpio_lines, test_relay
 from installer.hardware_wizard import SAFETY_WARNING, _calibrate, _yes_no
 
 
@@ -38,7 +38,7 @@ def hardware_status() -> bool:
         ("coin", config.GPIO_COIN_CHIP, config.GPIO_COIN_LINE, config.GPIO_COIN_NAME),
         ("relay", config.GPIO_RELAY_CHIP, config.GPIO_RELAY_LINE, config.GPIO_RELAY_NAME),
     ):
-        found = next((line for line in lines if line["chip"] == chip and line["offset"] == offset and line["name"].upper() == name.upper()), None)
+        found = next((line for line in lines if line_matches_config(line, chip, offset, name)), None)
         print(f"{label.title()} line live    : {'FOUND' if found else 'NOT FOUND'}")
     try:
         response = httpx.get(f"http://127.0.0.1:{config.BACKEND_PORT}/api/v1/coin/hardware-status", timeout=2)

@@ -185,7 +185,7 @@ class DoctorCheck:
         if app_config.COIN_INTERFACE != "gpio":
             return "critical", f"Unknown COIN_INTERFACE '{app_config.COIN_INTERFACE}'."
         try:
-            from installer.hardware import detect_host, is_verified_orange_pi_pc, read_gpio_lines
+            from installer.hardware import detect_host, is_verified_orange_pi_pc, line_matches_config, read_gpio_lines
             host = detect_host()
             if not is_verified_orange_pi_pc(host):
                 return "critical", f"GPIO profile mismatch: detected {host['board']} on {host['os']}."
@@ -196,7 +196,7 @@ class DoctorCheck:
             ]
             missing = [
                 name for chip, offset, name in expected
-                if not any(line["chip"] == chip and line["offset"] == offset and line["name"].upper() == name.upper() for line in lines)
+                if not any(line_matches_config(line, chip, offset, name) for line in lines)
             ]
             if missing:
                 return "critical", f"Configured GPIO line(s) not found: {', '.join(missing)}."

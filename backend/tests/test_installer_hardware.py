@@ -7,7 +7,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.insert(0, PROJECT_ROOT)
 
 from installer import hardware
-from installer.hardware import is_verified_orange_pi_pc, read_gpio_lines, resolve_profile_pin
+from installer.hardware import is_verified_orange_pi_pc, line_matches_config, read_gpio_lines, resolve_profile_pin
 
 
 def test_orange_pi_pc_gpio_profile_resolves_live_chip_offsets():
@@ -47,12 +47,34 @@ def test_gpioinfo_parser_tracks_runtime_chip_and_consumers(monkeypatch):
  line 9: \"PA9\" \"another-driver\" output active-high [used]
 """
     monkeypatch.setattr(hardware.shutil, "which", lambda name: "/usr/bin/gpioinfo")
-    monkeypatch.setattr(
-        hardware.subprocess,
-        "run",
-        lambda *args, **kwargs: type("Result", (), {"returncode": 0, "stdout": output})(),
-    )
+    def fake_run(command, **_kwargs):
+        stdout = "gpiochip2 [test-controller] (32 lines)\n" if "gpiodetect" in command[0] else output
+        return type("Result", (), {"returncode": 0, "stdout": stdout})()
+
+    monkeypatch.setattr(hardware.subprocess, "run", fake_run)
     lines = read_gpio_lines()
     assert lines[0]["chip"] == "/dev/gpiochip2"
     assert lines[0]["available"] is True
     assert lines[1]["available"] is False
+
+
+def test_unnamed_armbian_h3_lines_resolve_by_verified_controller_and_offset(monkeypatch):
+    info = """gpiochip0 - 224 lines:
+ line   7: unnamed input
+ line   9: unnamed input
+ line  15: unnamed output consumer=orangepi:red:status
+"""
+
+    def fake_run(command, **_kwargs):
+        stdout = "gpiochip0 [1c20800.pinctrl] (224 lines)\n" if "gpiodetect" in command[0] else info
+        return type("Result", (), {"returncode": 0, "stdout": stdout})()
+
+    monkeypatch.setattr(hardware.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(hardware.subprocess, "run", fake_run)
+    lines = read_gpio_lines()
+    coin = resolve_profile_pin(29, lines)
+    relay = resolve_profile_pin(33, lines)
+
+    assert (coin["chip"], coin["offset"], coin["gpio_name"]) == ("/dev/gpiochip0", 7, "PA7")
+    assert (relay["chip"], relay["offset"], relay["gpio_name"]) == ("/dev/gpiochip0", 9, "PA9")
+    assert line_matches_config(lines[0], "/dev/gpiochip0", 7, "PA7")
