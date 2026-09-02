@@ -31,6 +31,24 @@ Orange Pi coin-input GPIO
 
 **Do not connect WHITE/GRAY directly to GPIO.** The selector’s pulse output may be open-collector, pulled up, or driven; its electrical characteristics are unknown. Measure/identify it and design the isolation input, resistor, polarity, and pull-up accordingly. Software cannot make a 5V/12V signal safe.
 
+For a selector whose exact output has been verified as open-collector, the output may instead use an external 3.3V pull-up:
+
+```text
+Orange Pi physical pin 17 (3.3V)
+        |
+       10kΩ
+        |
+        +---------- physical pin 29 / PA7
+        |
+       1kΩ
+        |
+Verified open-collector COIN output (WHITE)
+
+Selector BLACK / 12V PSU GND ---- physical pin 34 GND
+```
+
+Pin 17 is a fixed 3.3V power rail, not a GPIO and not a software-configured pin. The shared signal ground is required for a non-isolated open-collector connection. This circuit is not suitable for a voltage-driven, 5V, or 12V pulse output; use the isolated interface above unless the particular selector has been verified.
+
 ```text
 Orange Pi relay GPIO
         |
