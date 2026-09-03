@@ -1,42 +1,22 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from datetime import datetime, timedelta
 from database import get_db
 from models.client import Client
-from models.session import Session as SessionModel, SessionStatus
+from models.session import Session as SessionModel, SessionStatus, ClientLiveSession
 from repositories.session_repository import SessionRepository
 from repositories.client_repository import ClientRepository
-from services.firewall_service import FirewallService
+from services.session_service import SessionService
+from services.client_service import ClientService
 from schemas.validation import MacRequest
 from utils.api_response import success, error
 from utils.time_utils import get_utc_now
 
 router = APIRouter(prefix="/api/v1/session", tags=["Session"])
 
-@router.get("/{mac}")
-def get_session(mac: str, db: Session = Depends(get_db)):
-    validated = MacRequest(mac=mac)
 
-    # Consolidate client and session lookups into a single LEFT OUTER JOIN query
-    stmt = (
-        select(Client, SessionModel)
-        .outerjoin(
-            SessionModel,
-            (SessionModel.client_id == Client.id) & SessionModel.status.in_([SessionStatus.ACTIVE, SessionStatus.PAUSED])
-        )
-        .where(Client.mac_address == validated.mac)
-        .order_by(SessionModel.id.desc())
-    )
-    row = db.execute(stmt).first()
-
-    if not row:
-        return error("Client not found", ["MAC invalid"])
-
-    client, session = row
-    if not session:
-        return error("No active session", ["Session missing"])
-
+def _format_session_response(client: Client, session: SessionModel) -> dict:
     now = get_utc_now()
     if session.status == SessionStatus.PAUSED:
         if session.remaining_seconds is not None and session.remaining_seconds > 0:
@@ -51,7 +31,7 @@ def get_session(mac: str, db: Session = Depends(get_db)):
     seconds = remaining_seconds % 60
     remaining_time = f"{hours:02}:{minutes:02}:{seconds:02}"
 
-    return success({
+    return {
         "session_id": session.id,
         "status": session.status.value if hasattr(session.status, "value") else str(session.status),
         "remaining_seconds": remaining_seconds,
@@ -61,70 +41,99 @@ def get_session(mac: str, db: Session = Depends(get_db)):
         "mac_address": client.mac_address,
         "ip_address": client.current_ip,
         "pause_allowed": getattr(session, "pause_allowed", True),
-    })
+    }
+
+
+@router.get("/current")
+@router.get("")
+def get_current_session(request: Request, db: Session = Depends(get_db)):
+    client_service = ClientService(ClientRepository(db))
+    client = client_service.resolve_trusted_client(request)
+
+    live = db.query(ClientLiveSession).filter(ClientLiveSession.client_id == client.id).first()
+    session = None
+    if live:
+        session = db.query(SessionModel).filter(SessionModel.id == live.session_id).first()
+
+    if not session or session.status not in (SessionStatus.ACTIVE, SessionStatus.PAUSED):
+        return error("No active session", ["Session missing"])
+
+    return success(_format_session_response(client, session))
+
+
+@router.get("/{mac}")
+def get_session(mac: str, request: Request, db: Session = Depends(get_db)):
+    validated = MacRequest(mac=mac)
+    client_service = ClientService(ClientRepository(db))
+    # Identity verification: verify caller is the actual owner of this MAC
+    client = client_service.resolve_trusted_client(request, claimed_mac=validated.mac)
+
+    stmt = (
+        select(Client, SessionModel)
+        .outerjoin(
+            SessionModel,
+            (SessionModel.client_id == Client.id) & SessionModel.status.in_([SessionStatus.ACTIVE, SessionStatus.PAUSED])
+        )
+        .where(Client.mac_address == client.mac_address)
+        .order_by(SessionModel.id.desc())
+    )
+    row = db.execute(stmt).first()
+
+    if not row:
+        return error("Client not found", ["MAC invalid"])
+
+    client_row, session = row
+    if not session:
+        return error("No active session", ["Session missing"])
+
+    return success(_format_session_response(client_row, session))
+
+
+@router.post("/pause")
+def pause_current_session(request: Request, db: Session = Depends(get_db)):
+    client_service = ClientService(ClientRepository(db))
+    client = client_service.resolve_trusted_client(request)
+    session_service = SessionService(SessionRepository(db))
+    try:
+        session = session_service.pause_session(client.id)
+        return success({"session_id": session.id, "status": SessionStatus.PAUSED.value})
+    except ValueError as exc:
+        return error(str(exc))
+
 
 @router.post("/pause/{mac}")
-def pause_session(mac: str, db: Session = Depends(get_db)):
+def pause_session(mac: str, request: Request, db: Session = Depends(get_db)):
     validated = MacRequest(mac=mac)
-    client_repo = ClientRepository(db)
-    session_repo = SessionRepository(db)
-    firewall = FirewallService()
+    client_service = ClientService(ClientRepository(db))
+    client = client_service.resolve_trusted_client(request, claimed_mac=validated.mac)
+    session_service = SessionService(SessionRepository(db))
+    try:
+        session = session_service.pause_session(client.id)
+        return success({"session_id": session.id, "status": SessionStatus.PAUSED.value})
+    except ValueError as exc:
+        return error(str(exc))
 
-    client = client_repo.get_by_mac(validated.mac)
-    if not client:
-        return error("Client not found")
 
-    session = session_repo.get_active_session_by_client_id(client.id, for_update=True)
-    if not session:
-        return error("No active session")
+@router.post("/resume")
+def resume_current_session(request: Request, db: Session = Depends(get_db)):
+    client_service = ClientService(ClientRepository(db))
+    client = client_service.resolve_trusted_client(request)
+    session_service = SessionService(SessionRepository(db))
+    try:
+        session = session_service.resume_session(client.id)
+        return success({"session_id": session.id, "status": SessionStatus.ACTIVE.value})
+    except ValueError as exc:
+        return error(str(exc))
 
-    if not getattr(session, "pause_allowed", True):
-        return error("Pause not allowed for this session package")
-
-    now = get_utc_now()
-    session.status = SessionStatus.PAUSED
-    session.paused_at = now
-    
-    rem_sec = max(0, int((session.end_time - now).total_seconds()))
-    session.remaining_seconds = rem_sec
-    session.remaining_minutes = rem_sec // 60
-    db.commit()
-
-    if client.current_ip:
-        firewall.remove(client.current_ip)
-
-    return success({"session_id": session.id, "status": SessionStatus.PAUSED.value})
 
 @router.post("/resume/{mac}")
-def resume_session(mac: str, db: Session = Depends(get_db)):
+def resume_session(mac: str, request: Request, db: Session = Depends(get_db)):
     validated = MacRequest(mac=mac)
-    client_repo = ClientRepository(db)
-    session_repo = SessionRepository(db)
-    firewall = FirewallService()
-
-    client = client_repo.get_by_mac(validated.mac)
-    if not client:
-        return error("Client not found")
-
-    session = session_repo.get_paused_session_by_client_id(client.id, for_update=True)
-    if not session:
-        return error("No paused session")
-
-    if session.remaining_seconds is not None and session.remaining_seconds > 0:
-        rem_sec = session.remaining_seconds
-    else:
-        rem_sec = (session.remaining_minutes or 0) * 60
-
-    now = get_utc_now()
-    session.status = SessionStatus.ACTIVE
-    session.start_time = now
-    session.end_time = now + timedelta(seconds=rem_sec)
-    session.paused_at = None
-    session.remaining_seconds = 0
-    session.remaining_minutes = rem_sec // 60
-    db.commit()
-
-    if client.current_ip:
-        firewall.authorize(client.current_ip)
-
-    return success({"session_id": session.id, "status": SessionStatus.ACTIVE.value})
+    client_service = ClientService(ClientRepository(db))
+    client = client_service.resolve_trusted_client(request, claimed_mac=validated.mac)
+    session_service = SessionService(SessionRepository(db))
+    try:
+        session = session_service.resume_session(client.id)
+        return success({"session_id": session.id, "status": SessionStatus.ACTIVE.value})
+    except ValueError as exc:
+        return error(str(exc))

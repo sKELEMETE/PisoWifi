@@ -31,6 +31,16 @@ server {
     }
 
     #
+    # Block Admin API & Dashboard from Public Captive Portal
+    #
+    location ^~ /api/admin/ {
+        return 403 "Forbidden: Administrative API is isolated to management port 8443.\n";
+    }
+    location ^~ /admin {
+        return 403 "Forbidden: Administrative dashboard is isolated to management port 8443.\n";
+    }
+
+    #
     # API
     #
     location /api/ {
@@ -54,6 +64,34 @@ server {
     #
     # React App Routing
     #
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+# Dedicated Management Plane (HTTPS on Port 8443)
+server {
+    listen 8443 ssl;
+    server_name _;
+
+    ssl_certificate {base_dir}/config/nginx/admin.crt;
+    ssl_certificate_key {base_dir}/config/nginx/admin.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    root {base_dir}/frontend/dist;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:{backend_port};
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }

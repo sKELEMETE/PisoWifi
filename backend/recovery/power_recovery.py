@@ -20,7 +20,7 @@ class PowerRecovery:
         self.session_repository = session_repository
         self.db = db
 
-    def recover(self):
+    def recover(self, force: bool = False):
         logger.info("Starting power recovery...")
 
         # Check system uptime to distinguish a system reboot (power failure) from a backend restart.
@@ -34,7 +34,7 @@ class PowerRecovery:
         except (FileNotFoundError, PermissionError, ValueError, OSError) as exc:
             logger.warning("Could not read system uptime, defaulting to False: %s", exc)
 
-        if not is_system_reboot:
+        if not is_system_reboot and not force:
             logger.info("System uptime is healthy. Treating as a clean backend restart. Skipping active session pausing.")
             return 0
 
@@ -43,19 +43,36 @@ class PowerRecovery:
         recovered = 0
         now = get_utc_now()
 
+        from models.session import ClientLiveSession
+
         for session in sessions:
+            # CRITICAL: Preserve the durable checkpointed remaining_seconds.
+            # Do NOT subtract wall-clock downtime when the machine was powered off!
+            if session.remaining_seconds is not None and session.remaining_seconds > 0:
+                rem_sec = session.remaining_seconds
+            elif session.remaining_minutes and session.remaining_minutes > 0:
+                rem_sec = session.remaining_minutes * 60
+            else:
+                rem_sec = max(0, int((session.end_time - now).total_seconds())) if session.end_time else 0
+
             session.status = SessionStatus.PAUSED
             session.paused_at = now
-            rem_sec = max(0, int((session.end_time - now).total_seconds()))
+            session.last_accounted_at = now
             session.remaining_seconds = rem_sec
             session.remaining_minutes = rem_sec // 60
-            recovered += 1
 
+            # Sync ClientLiveSession status
+            live = self.db.query(ClientLiveSession).filter(ClientLiveSession.client_id == session.client_id).first()
+            if live:
+                live.status = SessionStatus.PAUSED.value
+                live.updated_at = now
+
+            recovered += 1
 
         self.db.commit()
 
         logger.info(
-            "Power recovery complete. %s sessions paused.",
+            "Power recovery complete. %s sessions safely paused with time preserved.",
             recovered,
         )
 

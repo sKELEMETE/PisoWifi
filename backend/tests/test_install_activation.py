@@ -38,6 +38,7 @@ def test_activation_validates_nginx_and_restarts_configured_services(run):
     install.activate_system_services()
 
     services = (
+        "mariadb",
         "pisowifi-network",
         "nftables",
         "dnsmasq",

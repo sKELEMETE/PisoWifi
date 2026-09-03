@@ -108,17 +108,16 @@ export default function usePortal() {
             }
 
             catch (err) {
-
                 console.error(err);
-
-                setSession(null);
-
-                setPortalState(
-                    PortalState.INSERT
-                );
-
+                if (err?.response && err.response.status === 404) {
+                    setSession(null);
+                    setPortalState(PortalState.INSERT);
+                } else {
+                    // Retain last known session in store during transient network/server glitches
+                    // so the customer's purchased time balance is not cleared from UI
+                    setPortalState(PortalState.ERROR);
+                }
                 setError(err);
-
             }
 
             finally {

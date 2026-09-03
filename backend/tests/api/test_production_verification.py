@@ -63,6 +63,10 @@ def test_coin_reservation_concurrency():
     """Verify exclusive slot reservation prevents double reservation across concurrent activations."""
     db = SessionLocal()
     try:
+        from models.coin_reservation import CoinReservation
+        db.query(CoinReservation).delete()
+        db.commit()
+
         mac1 = gen_random_mac()
         mac2 = gen_random_mac()
 

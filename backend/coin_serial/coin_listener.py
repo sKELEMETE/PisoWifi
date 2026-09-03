@@ -6,6 +6,7 @@ import config
 from coin_serial.debounce import Debouncer
 from coin_serial.packet_validator import validate_packet
 from coin_serial.serial_manager import SerialManager
+from coin_serial.coin_spool import CoinSpool
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,7 @@ class CoinListener:
     def __init__(self):
         self.manager = SerialManager()
         self.debouncer = Debouncer()
+        self.spool = CoinSpool()
 
     def get_active_lease(self) -> str | None:
         url = f"http://127.0.0.1:{config.BACKEND_PORT}/api/v1/coin/hardware-session"
@@ -26,32 +28,36 @@ class CoinListener:
             logger.error("Failed to query active coin lease: %s", exc)
             return None
 
-    def process_coin_via_api(self, value: int, lease_id: str | None = None) -> bool:
+    def process_coin_via_api(
+        self,
+        value: int,
+        lease_id: str | None = None,
+        source: str = "serial",
+        pulse_count: int | None = None
+    ) -> bool:
         """
-        Sends a POST request to the local API backend to record the coin pulse.
-        Returns True if the coin was successfully accumulated under an active reservation.
+        Durably spools the event and dispatches it to the local API backend with ACK/retry.
+        Returns True if the coin was successfully accepted and acknowledged.
         """
         lease_id = lease_id or self.get_active_lease()
         if not lease_id:
             logger.warning("Coin ignored because no active customer lease exists")
             return False
-        url = f"http://127.0.0.1:{config.BACKEND_PORT}/api/v1/coin/insert"
-        try:
-            res = httpx.post(url, params={"value": value, "lease_id": lease_id}, timeout=5.0)
-            if res.status_code == 200:
-                data = res.json()
-                if data.get("success"):
-                    logger.info("Successfully recorded coin value %d via API.", value)
-                    return True
-                else:
-                    logger.warning("Coin rejected by API: %s", data.get("message"))
-            else:
-                logger.error("API returned error status %d: %s", res.status_code, res.text)
-        except Exception as exc:
-            logger.error("Failed to connect to local API to process coin: %s", exc)
-        return False
+
+        # Durably record event to write-ahead spool before network dispatch
+        event = self.spool.create_event(
+            denomination=value,
+            lease_id=lease_id,
+            source=source,
+            pulse_count=pulse_count,
+        )
+
+        return self.spool.dispatch_with_retry(event)
 
     def run(self):
+        logger.info("Reconciling unacknowledged coin events from write-ahead spool...")
+        self.spool.reconcile_spool()
+
         logger.info("Initializing serial manager connection...")
         self.manager.connect()
 

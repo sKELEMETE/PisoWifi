@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
+from sqlalchemy import CheckConstraint
 from sqlalchemy import DateTime
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy import ForeignKey
@@ -27,6 +28,7 @@ class Sale(Base):
     __table_args__ = (
         Index("ix_sales_created_at", "created_at"),
         Index("ix_sales_payment_method", "payment_method"),
+        CheckConstraint("amount >= 0 AND (payment_method != 'COIN' OR amount > 0)", name="chk_sales_amount"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

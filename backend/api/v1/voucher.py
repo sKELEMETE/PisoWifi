@@ -28,7 +28,7 @@ class RedeemVoucherRequest(BaseModel):
     mac: str
 
 
-def _process_voucher_redemption(code: str, mac: str, client_ip: str, db: Session):
+def _process_voucher_redemption(code: str, mac: str, client_ip: str, db: Session, request: Request | None = None):
     validated_mac = MacRequest(mac=mac)
     validated_code = VoucherRequest(code=code)
 
@@ -50,7 +50,12 @@ def _process_voucher_redemption(code: str, mac: str, client_ip: str, db: Session
     session_repo = SessionRepository(db)
     session_service = SessionService(session_repo)
 
-    client = client_repo.get_or_create(validated_mac.mac)
+    if request:
+        from services.client_service import ClientService
+        client_service = ClientService(client_repo)
+        client = client_service.resolve_trusted_client(request, claimed_mac=validated_mac.mac)
+    else:
+        client = client_repo.get_or_create(validated_mac.mac)
 
     # Associate client IP if missing or changed
     if client_ip and client_ip != "127.0.0.1":
@@ -161,7 +166,7 @@ def redeem_voucher_body(
 ):
     """Secure voucher redemption endpoint using JSON request body."""
     client_ip = NetworkService().get_client_ip(request)
-    return _process_voucher_redemption(payload.code, payload.mac, client_ip, db)
+    return _process_voucher_redemption(payload.code, payload.mac, client_ip, db, request=request)
 
 
 @router.post("/redeem/{code}/{mac}", deprecated=True)
@@ -173,5 +178,5 @@ def redeem_voucher(
 ):
     """Legacy redemption route. Deprecated: prefer POST /api/v1/voucher/redeem with JSON body."""
     client_ip = NetworkService().get_client_ip(request)
-    return _process_voucher_redemption(code, mac, client_ip, db)
+    return _process_voucher_redemption(code, mac, client_ip, db, request=request)
 

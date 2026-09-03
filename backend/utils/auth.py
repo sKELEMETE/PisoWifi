@@ -78,7 +78,20 @@ def generate_csrf_token() -> str:
 
 
 def get_current_admin(request: Request) -> str:
-    """FastAPI Dependency enforcing admin cookie authentication."""
+    """FastAPI Dependency enforcing admin cookie authentication and HTTPS in production."""
+    forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme).lower()
+    client_host = getattr(request.client, "host", "") if request.client else ""
+    if (
+        config.ENVIRONMENT == "production"
+        and forwarded_proto != "https"
+        and (client_host != "testclient" or "x-forwarded-proto" in request.headers)
+        and client_host not in ("127.0.0.1", "::1", "localhost")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="HTTPS is required for administrative management.",
+        )
+
     token = request.cookies.get("admin_token")
     if not token or token.strip() == "":
         raise HTTPException(

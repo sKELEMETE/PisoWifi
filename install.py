@@ -32,6 +32,7 @@ def run_checked(command: list[str], dry_run: bool = False, cwd: str | None = Non
 
 def install_dependencies(dry_run: bool) -> None:
     packages = [
+        "mariadb-server", "mariadb-client",
         "python3", "python3-venv", "python3-pip", "python3-bcrypt", "python3-libgpiod", "gpiod",
         "nginx", "dnsmasq", "nftables", "iproute2", "nodejs", "npm",
         "build-essential", "python3-dev", "rustc", "cargo", "pkg-config", "libffi-dev", "libssl-dev",
@@ -65,8 +66,21 @@ def install_application_dependencies(base_dir: str, dry_run: bool) -> None:
             os.makedirs(os.path.join(base_dir, directory), exist_ok=True)
 
 
+def setup_database(base_dir: str, dry_run: bool = False) -> None:
+    setup_script = os.path.join(base_dir, "scripts", "setup_mariadb.sh")
+    if os.path.exists(setup_script):
+        if not dry_run:
+            os.chmod(setup_script, 0o755)
+        run_checked([setup_script], dry_run)
+    backend_dir = os.path.join(base_dir, "backend")
+    venv_alembic = os.path.join(backend_dir, "venv", "bin", "alembic")
+    if os.path.exists(venv_alembic):
+        run_checked([venv_alembic, "upgrade", "head"], dry_run, cwd=backend_dir)
+
+
 def activate_system_services(dry_run: bool = False) -> None:
     services = (
+        "mariadb",
         "pisowifi-network",
         "nftables",
         "dnsmasq",
@@ -317,9 +331,12 @@ def main():
     print("==================================================")
 
     import secrets
-    jwt_secret = secrets.token_hex(16)
     import bcrypt
-    default_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt(12)).decode("utf-8")
+    jwt_secret = secrets.token_hex(32) # 256 bits for RFC 7518 compliance
+    initial_admin_pw = secrets.token_urlsafe(16)
+    fresh_admin_hash = bcrypt.hashpw(initial_admin_pw.encode(), bcrypt.gensalt(12)).decode("utf-8")
+    generated_db_pw = secrets.token_urlsafe(24)
+
     env_updates = {
         "PISOWIFI_BASE_DIR": args.base_dir,
         "PISOWIFI_RUN_DIR": f"{args.base_dir}/run",
@@ -327,15 +344,25 @@ def main():
         "PISOWIFI_GATEWAY_IP": args.gateway_ip,
         "PISOWIFI_SUBNET_CIDR": subnet_cidr,
         "PISOWIFI_LAN_INTERFACE_FALLBACK": args.lan_interface,
-        "PISOWIFI_DATABASE_TYPE": existing_env.get("PISOWIFI_DATABASE_TYPE", "sqlite"),
+        "PISOWIFI_DATABASE_TYPE": existing_env.get("PISOWIFI_DATABASE_TYPE", "mysql"),
+        "DATABASE_HOST": existing_env.get("DATABASE_HOST", "localhost"),
+        "DATABASE_PORT": existing_env.get("DATABASE_PORT", "3306"),
+        "DATABASE_USER": existing_env.get("DATABASE_USER", "pisowifi"),
+        "DATABASE_PASSWORD": existing_env.get("DATABASE_PASSWORD", generated_db_pw),
+        "DATABASE_NAME": existing_env.get("DATABASE_NAME", "pisowifi"),
         "SERIAL_PORT": args.serial_port,
         "PISOWIFI_BACKEND_PORT": str(args.backend_port),
         "CAPTIVE_PORTAL_PORT": str(args.captive_portal_port),
         "ADMIN_USERNAME": existing_env.get("ADMIN_USERNAME", "admin"),
-        "ADMIN_PASSWORD_HASH": existing_env.get("ADMIN_PASSWORD_HASH", f"'{default_hash}'"),
+        "ADMIN_PASSWORD_HASH": existing_env.get("ADMIN_PASSWORD_HASH", f"'{fresh_admin_hash}'"),
         "ADMIN_JWT_SECRET": existing_env.get("ADMIN_JWT_SECRET", jwt_secret),
         **hardware_settings,
     }
+    if not existing_env.get("ADMIN_PASSWORD_HASH"):
+        print(f"\n[SECURITY] Generated Fresh Admin Credentials:")
+        print(f" - Username: admin")
+        print(f" - Password: {initial_admin_pw}")
+        print(" [NOTE: Change this password immediately after logging in]")
     env_content = build_env_content(existing_env, env_updates)
 
     rollback_mgr = RollbackManager()
@@ -403,6 +430,7 @@ def main():
                 # have started with their distribution-default configuration.
                 print("Validating configuration and restarting services...")
                 install_application_dependencies(args.base_dir, args.dry_run)
+                setup_database(args.base_dir, args.dry_run)
                 activate_system_services()
                 print("[OK] Deployment configuration installed and services restarted successfully!")
 

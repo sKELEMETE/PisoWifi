@@ -16,6 +16,8 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
+from sqlalchemy import CheckConstraint, String
+
 class SessionStatus(str, Enum):
     ACTIVE = "ACTIVE"
     PAUSED = "PAUSED"
@@ -29,6 +31,10 @@ class Session(Base):
         Index("ix_sessions_status", "status"),
         Index("ix_sessions_client", "client_id"),
         Index("ix_sessions_end_time", "end_time"),
+        Index("ix_sessions_status_end_time", "status", "end_time"),
+        Index("ix_sessions_status_paused_at", "status", "paused_at"),
+        CheckConstraint("remaining_seconds >= 0", name="chk_sessions_remaining_seconds_non_negative"),
+        CheckConstraint("purchased_minutes >= 0", name="chk_sessions_purchased_minutes_non_negative"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -90,6 +96,11 @@ class Session(Base):
         nullable=False,
     )
 
+    last_accounted_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
@@ -113,4 +124,31 @@ class Session(Base):
 
     sales: Mapped[list["Sale"]] = relationship(
         back_populates="session",
+    )
+
+
+class ClientLiveSession(Base):
+    __tablename__ = "client_live_sessions"
+
+    client_id: Mapped[int] = mapped_column(
+        ForeignKey("clients.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )

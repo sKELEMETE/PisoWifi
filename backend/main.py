@@ -183,7 +183,8 @@ async def add_security_headers(request: Request, call_next):
         response.headers["Expires"] = "0"
     return response
 
-app.include_router(health_router)
+app.include_router(health_router, prefix="/api/v1/health")
+app.include_router(health_router, prefix="/health")
 app.include_router(api_router)
 app.include_router(session_router)
 app.include_router(voucher_router)

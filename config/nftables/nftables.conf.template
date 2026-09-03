@@ -1,17 +1,40 @@
 table inet {nft_table_name} {
     set {nft_set_name} {
-        type ipv4_addr
+        type ipv4_addr . ether_addr
         flags timeout
     }
 
     chain input {
-        type filter hook input priority filter; policy accept;
+        type filter hook input priority filter; policy drop;
+
+        # Allow local loopback
+        iifname "lo" accept
+
+        # Allow established and related connections
+        ct state established,related accept
+
+        # Allow DHCP server traffic from LAN interface (UDP 67/68)
+        iifname "{lan_interface}" udp sport 68 udp dport 67 accept
+
+        # Allow local DNS traffic from LAN interface (UDP/TCP 53)
+        iifname "{lan_interface}" udp dport 53 accept
+        iifname "{lan_interface}" tcp dport 53 accept
+
+        # Allow captive portal web traffic from LAN interface (HTTP 80, HTTPS 443)
+        iifname "{lan_interface}" tcp dport 80 accept
+        iifname "{lan_interface}" tcp dport 443 accept
+
+        # Drop everything else from LAN: unauthorized clients cannot reach SSH or Admin API
     }
 
     chain forward {
         type filter hook forward priority filter; policy drop;
-        ip saddr @{nft_set_name} accept
-        ip daddr @{nft_set_name} accept
+
+        # Allow established and related connections
+        ct state established,related accept
+
+        # Forward Internet traffic ONLY for authenticated IP+MAC pairs on the designated LAN interface
+        iifname "{lan_interface}" oifname "{wan_interface}" ip saddr . ether saddr @{nft_set_name} accept
     }
 
     chain output {
@@ -21,15 +44,21 @@ table inet {nft_table_name} {
 
 table ip nat {
     set {nft_set_name} {
-        type ipv4_addr
+        type ipv4_addr . ether_addr
         flags timeout
     }
 
     chain prerouting {
         type nat hook prerouting priority dstnat; policy accept;
-        ip saddr @{nft_set_name} return
+
+        # Authenticated clients skip captive portal redirection
+        iifname "{lan_interface}" ip saddr . ether saddr @{nft_set_name} return
+
+        # Redirect unauthorized client DNS to local dnsmasq
         iifname "{lan_interface}" udp dport 53 redirect to :53
         iifname "{lan_interface}" tcp dport 53 redirect to :53
+
+        # Redirect unauthorized client HTTP traffic to captive portal
         iifname "{lan_interface}" tcp dport 80 redirect to :80
     }
 

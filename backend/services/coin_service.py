@@ -39,7 +39,7 @@ class CoinService:
             db.refresh(session)
 
             if client.current_ip and authorize:
-                self.session_service.firewall.authorize(client.current_ip)
+                self.session_service.firewall.authorize(client.current_ip, mac=client.mac_address)
 
             return session
         except Exception as exc:
@@ -91,7 +91,7 @@ class CoinService:
                 db.commit()
                 db.refresh(session)
                 if client.current_ip and authorize:
-                    self.session_service.firewall.authorize(client.current_ip)
+                    self.session_service.firewall.authorize(client.current_ip, mac=client.mac_address)
             return session
         except Exception as exc:
             if commit:

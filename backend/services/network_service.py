@@ -41,6 +41,11 @@ class MockNetworkProvider(NetworkProvider):
         return f"00:11:22:33:44:{hex_val}"
 
 
+import ipaddress
+
+TRUSTED_PROXIES = {"127.0.0.1", "::1"}
+
+
 class NetworkService:
 
     def __init__(self):
@@ -50,24 +55,55 @@ class NetworkService:
         else:
             self.provider = MockNetworkProvider()
 
-    def get_client_ip(self, request):
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip
+    def get_client_ip(self, request) -> str:
+        direct_ip = request.client.host if request.client else "127.0.0.1"
+        try:
+            ipaddress.ip_address(direct_ip)
+        except ValueError:
+            direct_ip = "127.0.0.1"
 
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
+        # Only trust proxy headers when direct connection originates from a trusted local reverse proxy (Nginx)
+        if direct_ip in TRUSTED_PROXIES:
+            is_dev = config.DEBUG or config.ENVIRONMENT in ("development", "dev", "test")
+            if is_dev:
+                test_ip = request.headers.get("X-Test-Client-IP")
+                if test_ip:
+                    try:
+                        ipaddress.ip_address(test_ip.strip())
+                        return test_ip.strip()
+                    except ValueError:
+                        pass
 
-        if request.client:
-            return request.client.host
+            real_ip = request.headers.get("X-Real-IP")
+            if real_ip:
+                candidate = real_ip.strip()
+                try:
+                    ipaddress.ip_address(candidate)
+                    return candidate
+                except ValueError:
+                    pass
 
-        return "127.0.0.1"
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                candidate = forwarded.split(",")[0].strip()
+                try:
+                    ipaddress.ip_address(candidate)
+                    return candidate
+                except ValueError:
+                    pass
 
-    def get_client_mac(self, ip_address):
+        return direct_ip
+
+    def get_client_mac(self, ip_address: str, request=None) -> str:
+        is_dev = config.DEBUG or config.ENVIRONMENT in ("development", "dev", "test")
+        if is_dev and request is not None:
+            test_mac = request.headers.get("X-Test-Client-MAC")
+            if test_mac:
+                return test_mac.strip().upper()
+
         return self.provider.get_client_mac(ip_address)
 
-    def get_hostname(self, ip_address):
+    def get_hostname(self, ip_address: str) -> str:
         try:
             return socket.gethostbyaddr(ip_address)[0]
         except socket.herror:

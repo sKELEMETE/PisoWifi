@@ -15,15 +15,10 @@ _last_monotonic_time = None
 
 def check_expired_reservations(db):
     """
-    Find expired coin reservations and finalize/release them.
+    Find expired coin reservations and finalize/release them via CoinSettlementService.
     """
-    from models.coin_reservation import CoinReservation, PendingCoin
-    from repositories.rate_repository import RateRepository
-    from repositories.client_repository import ClientRepository
-    from repositories.sales_repository import SalesRepository
-    from repositories.session_repository import SessionRepository
-    from services.session_service import SessionService
-    from services.coin_service import CoinService
+    from models.coin_reservation import CoinReservation
+    from services.coin_settlement_service import CoinSettlementService
 
     now = get_utc_now()
     expired = db.query(CoinReservation).filter(CoinReservation.expires_at <= now).all()
@@ -33,38 +28,16 @@ def check_expired_reservations(db):
             hardware_service.set_accepting(False)
         except Exception as exc:
             logger.error("Failed to force coin relay OFF for expired lease: %s", exc)
-    client_repo = ClientRepository(db)
+
+    settlement = CoinSettlementService(db)
     for res in expired:
         mac = res.mac
-        masked_mac = f"**:**:**:**:{mac[-5:]}"
-        logger.info("Scheduler: coin lease timed out for %s. Finalizing...", masked_mac)
+        lease_id = res.lease_id
+        masked_mac = f"**:**:**:**:{mac[-5:]}" if len(mac) >= 5 else mac
+        logger.info("Scheduler: coin lease timed out for %s. Finalizing via CoinSettlementService...", masked_mac)
         try:
-            pending_records = db.query(PendingCoin).filter(PendingCoin.mac == mac).all()
-            coins = [r.amount for r in pending_records]
-            if coins:
-                coin_service = CoinService(
-                    rate_repository=RateRepository(db),
-                    client_repository=client_repo,
-                    session_service=SessionService(SessionRepository(db)),
-                    sale_repository=SalesRepository(db),
-                )
-                coin_service.process_coins_bulk(mac, coins, authorize=True, commit=False)
-
-            db.query(CoinReservation).filter(CoinReservation.mac == mac).delete()
-            db.query(PendingCoin).filter(PendingCoin.mac == mac).delete()
-            db.commit()
-
-            if coins:
-                client = client_repo.get_by_mac(mac)
-                if client and client.current_ip:
-                    try:
-                        FirewallService().authorize(client.current_ip)
-                    except Exception as auth_exc:
-                        logger.error("Scheduler: failed to authorize %s after coin processing: %s", mac, auth_exc)
-
-            logger.info("Scheduler: slot successfully released for %s.", masked_mac)
+            settlement.finalize_lease(lease_id=lease_id, mac=mac, authorize=True)
         except Exception as exc:
-            db.rollback()
             logger.error("Scheduler: failed to finalize expired reservation for %s: %s", masked_mac, exc)
 
 
@@ -81,6 +54,7 @@ def check_expired_reservations_job():
 def expire_sessions():
     global _last_system_time, _last_monotonic_time
     import time
+    from models.session import ClientLiveSession
 
     db = SessionLocal()
     try:
@@ -109,6 +83,14 @@ def expire_sessions():
         _last_system_time = now
         _last_monotonic_time = current_mono
 
+        # Checkpoint running active sessions to protect remaining time across unexpected power loss
+        active_sessions = db.query(SessionModel).filter(SessionModel.status == SessionStatus.ACTIVE).all()
+        for s in active_sessions:
+            cur_rem = max(0, int((s.end_time - now).total_seconds())) if s.end_time else 0
+            s.remaining_seconds = cur_rem
+            s.remaining_minutes = cur_rem // 60
+            s.last_accounted_at = now
+
         # Expire ACTIVE sessions whose end_time has passed.
         # Single JOIN query to avoid N+1 client lookups.
         expired_active = db.execute(
@@ -118,10 +100,12 @@ def expire_sessions():
             .where(SessionModel.end_time <= now)
         ).all()
 
+        expired_ids = []
         for session, client_ip in expired_active:
             session.status = SessionStatus.EXPIRED
             session.remaining_minutes = 0
             session.remaining_seconds = 0
+            expired_ids.append(session.id)
             if client_ip:
                 firewall.remove(client_ip)
 
@@ -143,8 +127,17 @@ def expire_sessions():
             session.status = SessionStatus.EXPIRED
             session.remaining_minutes = 0
             session.remaining_seconds = 0
+            expired_ids.append(session.id)
             if client_ip:
                 firewall.remove(client_ip)
+
+        if expired_ids:
+            from models.network_authorization import NetworkAuthorization, NetworkAuthState
+            db.query(ClientLiveSession).filter(ClientLiveSession.session_id.in_(expired_ids)).delete(synchronize_session=False)
+            db.query(NetworkAuthorization).filter(NetworkAuthorization.session_id.in_(expired_ids)).update(
+                {"desired_state": NetworkAuthState.BLOCKED.value},
+                synchronize_session=False
+            )
 
         db.commit()
 
@@ -153,59 +146,20 @@ def expire_sessions():
     finally:
         db.close()
 
+
 def sync_firewall():
-    import json
-    import subprocess
+    """Continuously reconciles database network authorization state with running firewall rules."""
     from database import SessionLocal
-    from models.session import Session as SessionModel, SessionStatus
-    from models.client import Client
-    from services.firewall_service import FirewallService
+    from services.firewall_reconciler import FirewallReconciler
 
     db = SessionLocal()
     try:
-        firewall = FirewallService()
-        # 1. Get active IPs from database
-        active_ips = db.execute(
-            select(Client.current_ip)
-            .join(SessionModel, SessionModel.client_id == Client.id)
-            .where(SessionModel.status == SessionStatus.ACTIVE)
-        ).scalars().all()
-        active_ips = {ip for ip in active_ips if ip}
-
-        # 2. Get actual IPs from nftables sets
-        nft_ips = set()
-        for family, table, set_name in [("inet", config.NFT_TABLE_NAME, config.NFT_SET_NAME), ("ip", "nat", config.NFT_SET_NAME)]:
-            cmd = [config.PATH_NFT, "-j", "list", "set", family, table, set_name]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            if result.returncode == 0:
-                try:
-                    data = json.loads(result.stdout)
-                    for obj in data.get("nftables", []):
-                        if "set" in obj and "elem" in obj["set"]:
-                            nft_ips.update(obj["set"]["elem"])
-                except Exception:
-                    pass
-
-        # 3. Remove orphans (IP in nftables but not active in DB)
-        orphans = nft_ips - active_ips
-        for ip in orphans:
-            logger.info("Firewall Auditor: removing orphan IP %s", ip)
-            try:
-                firewall.remove(ip)
-            except Exception as exc:
-                logger.error("Firewall Auditor: failed to remove orphan %s: %s", ip, exc)
-
-        # 4. Restore missing (IP active in DB but missing from nftables)
-        missing = active_ips - nft_ips
-        for ip in missing:
-            logger.info("Firewall Auditor: authorizing missing IP %s", ip)
-            try:
-                firewall.authorize(ip)
-            except Exception as exc:
-                logger.error("Firewall Auditor: failed to restore missing %s: %s", ip, exc)
-
-    except Exception as e:
-        logger.error("Firewall Auditor sync failed: %s", e)
+        reconciler = FirewallReconciler()
+        metrics = reconciler.reconcile_once(db)
+        if metrics["out_of_sync_count"] > 0:
+            logger.info("Firewall Reconciler completed: %s", metrics)
+    except Exception as exc:
+        logger.error("Firewall Reconciler job failed: %s", exc)
     finally:
         db.close()
 

@@ -30,13 +30,22 @@ if DATABASE_TYPE.lower() == "sqlite":
 else:
     DATABASE_URL = os.getenv("PISOWIFI_DATABASE_URL", f"mysql+pymysql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}")
 
-BASE_DIR = os.getenv("PISOWIFI_BASE_DIR", "/opt/pisowifi")
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_default_base = "/opt/pisowifi" if os.path.exists("/opt/pisowifi") else _REPO_ROOT
+BASE_DIR = os.getenv("PISOWIFI_BASE_DIR", _default_base)
 RUN_DIR = os.getenv("PISOWIFI_RUN_DIR", os.path.join(BASE_DIR, "run"))
 SFX_DIRECTORY = os.getenv("SFX_DIRECTORY", os.path.join(BASE_DIR, "sfx"))
+if not os.path.exists(SFX_DIRECTORY) and os.path.exists(os.path.join(_REPO_ROOT, "sfx")):
+    SFX_DIRECTORY = os.path.join(_REPO_ROOT, "sfx")
 
 SESSION_CHECK_INTERVAL = int(os.getenv("SESSION_CHECK_INTERVAL", "60"))
 BACKUP_DIRECTORY = os.getenv("BACKUP_DIRECTORY", os.path.join(BASE_DIR, "backups"))
+if not os.path.exists(BACKUP_DIRECTORY) and os.path.exists(os.path.join(_REPO_ROOT, "backups")):
+    BACKUP_DIRECTORY = os.path.join(_REPO_ROOT, "backups")
+
 LOG_DIRECTORY = os.getenv("LOG_DIRECTORY", os.path.join(BASE_DIR, "logs"))
+if not os.path.exists(LOG_DIRECTORY) and os.path.exists(os.path.join(_REPO_ROOT, "logs")):
+    LOG_DIRECTORY = os.path.join(_REPO_ROOT, "logs")
 NFT_TABLE_NAME = os.getenv("NFT_TABLE_NAME", "pisowifi")
 NFT_SET_NAME = os.getenv("NFT_SET_NAME", "authenticated_clients")
 CAPTIVE_PORTAL_PORT = int(os.getenv("CAPTIVE_PORTAL_PORT", "80"))
