@@ -12,8 +12,10 @@ fi
 
 DB_NAME="pisowifi"
 DB_USER="pisowifi"
-ENV_FILE="/opt/pisowifi/.env"
-[ ! -f "$ENV_FILE" ] && ENV_FILE="$(dirname "$(dirname "$(readlink -f "$0")")")/.env"
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+DEFAULT_BASE_DIR="$(dirname "$SCRIPT_DIR")"
+BASE_DIR="${PISOWIFI_BASE_DIR:-$DEFAULT_BASE_DIR}"
+ENV_FILE="${BASE_DIR}/backend/.env"
 
 echo "[INFO] Checking MariaDB installation..."
 if ! command -v mariadb &>/dev/null && ! command -v mysql &>/dev/null; then
@@ -73,6 +75,10 @@ echo "[INFO] MariaDB setup and validation successful!"
 if [[ -f "$ENV_FILE" ]]; then
     echo "[INFO] Updating database settings in $ENV_FILE..."
     sed -i "s/^DATABASE_PASSWORD=.*/DATABASE_PASSWORD=${DB_PASSWORD}/" "$ENV_FILE"
-    sed -i "s/^PISOWIFI_DATABASE_TYPE=.*/PISOWIFI_DATABASE_TYPE=mysql/" "$ENV_FILE"
+    if ! grep -q "^PISOWIFI_DATABASE_TYPE=" "$ENV_FILE"; then
+        echo "PISOWIFI_DATABASE_TYPE=mysql" >> "$ENV_FILE"
+    elif grep -q "^PISOWIFI_DATABASE_TYPE=sqlite$" "$ENV_FILE"; then
+        echo "[WARNING] Existing SQLite configuration preserved; migrate its data before switching to MariaDB."
+    fi
     chmod 0600 "$ENV_FILE"
 fi

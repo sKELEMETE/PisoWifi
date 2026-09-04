@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from installer.utils import get_version, check_root
 from installer.validate import validate_system_version, validate_kernel_capabilities
-from installer.templates import render_templates, install_system_files
+from installer.templates import ensure_admin_tls_certificate, render_templates, install_system_files
 from installer.rollback import RollbackManager
 from installer.backup import create_and_validate_backup
 from installer.uninstall import run_uninstall
@@ -34,7 +34,7 @@ def install_dependencies(dry_run: bool) -> None:
     packages = [
         "mariadb-server", "mariadb-client",
         "python3", "python3-venv", "python3-pip", "python3-bcrypt", "python3-libgpiod", "gpiod",
-        "nginx", "dnsmasq", "nftables", "iproute2", "nodejs", "npm",
+        "nginx", "dnsmasq", "nftables", "iproute2", "nodejs", "npm", "openssl",
         "build-essential", "python3-dev", "rustc", "cargo", "pkg-config", "libffi-dev", "libssl-dev",
     ]
     run_checked(["apt-get", "update"], dry_run)
@@ -405,6 +405,13 @@ def main():
             print(f"\n[DRY-RUN] Would render templates under: {config_dir}")
         else:
             output_paths = render_templates(config_dir, params)
+
+        ensure_admin_tls_certificate(
+            args.base_dir,
+            args.gateway_ip,
+            rollback_mgr=rollback_mgr,
+            dry_run=args.dry_run,
+        )
 
         # C: System installs
         if args.write_system_configs:

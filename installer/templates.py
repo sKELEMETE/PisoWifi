@@ -1,5 +1,59 @@
 import os
 import shutil
+import subprocess
+import tempfile
+
+
+def ensure_admin_tls_certificate(
+    base_dir: str,
+    gateway_ip: str,
+    rollback_mgr=None,
+    dry_run: bool = False,
+) -> tuple[str, str]:
+    """Create the local admin TLS certificate when an installation has none."""
+    cert_dir = os.path.join(base_dir, "config", "nginx")
+    cert_path = os.path.join(cert_dir, "admin.crt")
+    key_path = os.path.join(cert_dir, "admin.key")
+
+    if os.path.isfile(cert_path) and os.path.isfile(key_path):
+        if not dry_run:
+            os.chmod(cert_path, 0o644)
+            os.chmod(key_path, 0o600)
+        return cert_path, key_path
+
+    if dry_run:
+        print(f"[DRY-RUN] Would generate admin TLS certificate: {cert_path}")
+        return cert_path, key_path
+
+    os.makedirs(cert_dir, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="pisowifi-tls-") as temp_dir:
+        temp_cert = os.path.join(temp_dir, "admin.crt")
+        temp_key = os.path.join(temp_dir, "admin.key")
+        subprocess.run(
+            [
+                "openssl", "req", "-x509", "-nodes", "-newkey", "rsa:2048",
+                "-keyout", temp_key,
+                "-out", temp_cert,
+                "-days", "825",
+                "-subj", f"/CN={gateway_ip}",
+                "-addext", f"subjectAltName=IP:{gateway_ip}",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        for source, destination in ((temp_cert, cert_path), (temp_key, key_path)):
+            if rollback_mgr:
+                with open(source) as stream:
+                    rollback_mgr.write_file(destination, stream.read())
+            else:
+                shutil.copy2(source, destination)
+
+    os.chmod(cert_path, 0o644)
+    os.chmod(key_path, 0o600)
+    print(f"[OK] Generated admin TLS certificate: {cert_path}")
+    return cert_path, key_path
 
 
 def render_templates(config_dir: str, params: dict) -> dict[str, str]:

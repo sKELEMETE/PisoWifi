@@ -1,4 +1,5 @@
 import os
+import shutil
 import stat
 import subprocess
 import pytest
@@ -6,6 +7,8 @@ from starlette.testclient import TestClient
 import config
 from main import app
 from utils.auth import create_access_token, verify_access_token
+from installer.rollback import RollbackManager
+from installer.templates import ensure_admin_tls_certificate
 
 
 def test_admin_jwt_secret_length_and_rfc7518_compliance():
@@ -62,6 +65,8 @@ def test_mariadb_setup_script_and_systemd_hardening():
         script_content = f.read()
     assert "innodb_flush_log_at_trx_commit = 2" in script_content
     assert "innodb_buffer_pool_size = 128M" in script_content
+    assert 'ENV_FILE="${BASE_DIR}/backend/.env"' in script_content
+    assert "Existing SQLite configuration preserved" in script_content
 
     systemd_tmpl = os.path.join(repo_root, "config/systemd/pisowifi-backend.service.template")
     with open(systemd_tmpl, "r") as f:
@@ -85,6 +90,28 @@ def test_management_plane_separation_in_nginx():
     assert "return 403" in content
     assert "listen 8443 ssl" in content
     assert "ssl_certificate" in content
+
+
+def test_installer_provisions_admin_tls_certificate(tmp_path):
+    if not shutil.which("openssl"):
+        pytest.skip("openssl is not installed")
+
+    rollback = RollbackManager(str(tmp_path / "rollback"))
+    cert_path, key_path = ensure_admin_tls_certificate(
+        str(tmp_path / "install"),
+        "10.0.0.1",
+        rollback_mgr=rollback,
+    )
+
+    assert os.path.isfile(cert_path)
+    assert os.path.isfile(key_path)
+    assert stat.S_IMODE(os.stat(cert_path).st_mode) == 0o644
+    assert stat.S_IMODE(os.stat(key_path).st_mode) == 0o600
+    subprocess.run(["openssl", "x509", "-in", cert_path, "-noout"], check=True)
+
+    rollback.rollback()
+    assert not os.path.exists(cert_path)
+    assert not os.path.exists(key_path)
 
 
 def test_admin_login_https_enforcement_in_production(monkeypatch):

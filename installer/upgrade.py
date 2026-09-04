@@ -5,7 +5,7 @@ import shutil
 from installer.utils import check_root, get_version
 from installer.backup import create_and_validate_backup
 from installer.rollback import RollbackManager
-from installer.templates import render_templates, install_system_files
+from installer.templates import ensure_admin_tls_certificate, render_templates, install_system_files
 from installer.doctor import DoctorCheck
 from installer.log_manager import get_logger
 
@@ -168,6 +168,11 @@ def run_upgrade(base_dir: str) -> bool:
         }
 
         output_paths = render_templates(os.path.join(base_dir, "config"), params)
+        ensure_admin_tls_certificate(
+            base_dir,
+            config.GATEWAY_IP,
+            rollback_mgr=rollback_mgr,
+        )
         install_system_files(output_paths, rollback_mgr=rollback_mgr)
 
         # 4. Database Migrations
