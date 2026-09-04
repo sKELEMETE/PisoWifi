@@ -8,6 +8,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 from installer import hardware
 from installer.hardware import is_verified_orange_pi_pc, line_matches_config, powered_relay, read_gpio_lines, resolve_profile_pin
+from installer.hardware_wizard import print_completion_hardware
 
 
 def test_orange_pi_pc_gpio_profile_resolves_live_chip_offsets():
@@ -78,6 +79,18 @@ def test_unnamed_armbian_h3_lines_resolve_by_verified_controller_and_offset(monk
     assert (coin["chip"], coin["offset"], coin["gpio_name"]) == ("/dev/gpiochip0", 7, "PA7")
     assert (relay["chip"], relay["offset"], relay["gpio_name"]) == ("/dev/gpiochip0", 9, "PA9")
     assert line_matches_config(lines[0], "/dev/gpiochip0", 7, "PA7")
+
+
+def test_preserved_gpio_completion_does_not_require_wizard_details(capsys):
+    print_completion_hardware(
+        {"interface": "gpio", "host": {}},
+        "/opt/pisowifi/backend/.env",
+        "/opt/pisowifi/logs/install.log",
+    )
+
+    output = capsys.readouterr().out
+    assert "Native GPIO (existing configuration preserved)" in output
+    assert "/opt/pisowifi/backend/.env" in output
 
 
 @pytest.mark.parametrize("active_low,off,on", [(True, 1, 0), (False, 0, 1)])

@@ -442,11 +442,17 @@ def main():
                 print("[OK] Deployment configuration installed and services restarted successfully!")
 
                 if hardware_summary.get("interface") == "gpio":
-                    print_completion_hardware(
-                        hardware_summary,
-                        env_file,
-                        "/opt/pisowifi/logs/install.log",
-                    )
+                    try:
+                        print_completion_hardware(
+                            hardware_summary,
+                            env_file,
+                            os.path.join(args.base_dir, "logs", "install.log"),
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Installation succeeded, but the hardware summary could not be displayed: %s",
+                            exc,
+                        )
         else:
             if not args.dry_run:
                 print("\nTo apply these configurations to your system, run as root:")

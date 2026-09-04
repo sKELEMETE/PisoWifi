@@ -179,6 +179,17 @@ def print_completion_hardware(summary: dict, config_path: str, log_path: str) ->
     if summary.get("interface") != "gpio":
         print("Hardware backend: Arduino via USB serial (existing mode preserved)")
         return
+
+    required_details = {
+        "coin_pin", "relay_pin", "active_low", "mapping",
+        "relay_tested", "coin_tested",
+    }
+    if not required_details.issubset(summary) or not summary.get("host", {}).get("board"):
+        print("\nHardware backend: Native GPIO (existing configuration preserved)")
+        print(f"Configuration: {config_path}\nInstallation log: {log_path}")
+        print("Useful commands:\n  sudo pisowifi doctor\n  sudo pisowifi hardware-status\n  sudo pisowifi hardware-test")
+        return
+
     coin = summary["coin_pin"]
     relay = summary["relay_pin"]
     state = "LOW" if summary["active_low"] else "HIGH"
